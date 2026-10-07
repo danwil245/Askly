@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+coverage/
+.DS_Store
+*.log
+npm-debug.log*
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# editor
+.vscode/
+.idea/
+
+# test / tooling caches
+.vitest/
+.cache/
+.mongodb-binaries/
