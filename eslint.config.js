@@ -6,9 +6,9 @@ import reactHooks from 'eslint-plugin-react-hooks';
 export default [
   { ignores: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/coverage/**'] },
   js.configs.recommended,
-  // Server (Node, ES modules)
+  // Server (Node, ES modules) — covers .js and .mjs (e.g. dev-memory.mjs, scripts)
   {
-    files: ['server/**/*.js'],
+    files: ['server/**/*.js', 'server/**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',

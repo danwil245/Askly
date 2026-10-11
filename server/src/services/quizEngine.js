@@ -378,12 +378,10 @@ export async function cleanupInterruptedGamesOnBoot() {
   const activeQuizRooms = await Room.find({ type: 'quiz', status: 'open' }).lean();
   for (const room of activeQuizRooms) {
     if (!room.currentSessionId) continue;
-    // eslint-disable-next-line no-await-in-loop
     await Session.updateOne(
       { _id: room.currentSessionId, status: 'active' },
       { $set: { status: 'ended', endedAt: new Date(), interrupted: true } }
     );
-    // eslint-disable-next-line no-await-in-loop
     await Room.updateOne({ _id: room._id }, { $set: { status: 'closed', currentSessionId: null } });
   }
   if (activeQuizRooms.length) {

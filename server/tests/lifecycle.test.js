@@ -73,7 +73,6 @@ describe('room lifecycle + sessions (REST)', () => {
       request(app).post(`/api/rooms/${code}/open`).set(auth(other.token)),
       request(app).get(`/api/rooms/${code}/sessions`).set(auth(other.token)),
     ]) {
-      // eslint-disable-next-line no-await-in-loop
       const res = await call;
       expect(res.status).toBe(403);
       expect(res.body.error.code).toBe('FORBIDDEN');

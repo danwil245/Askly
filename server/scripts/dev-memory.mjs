@@ -12,7 +12,6 @@ process.env.CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
 // Dev-only JWT secret so the server boots without a .env (data is ephemeral anyway).
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev-only-in-memory-secret-change-me-please-32chars';
 
-// eslint-disable-next-line no-console
 console.log('[dev-memory] in-memory MongoDB ready at', process.env.MONGODB_URI);
 
 const indexPath = path.resolve(process.cwd(), 'src/index.js');

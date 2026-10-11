@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/http.js';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { resolveJoinTarget } from '../../lib/joinRouting.js';
 import { Icon } from '../shared/icons.jsx';
 
 /**
@@ -24,13 +25,7 @@ export function JoinPill() {
     setError('');
     try {
       const meta = await api.getRoom(c);
-      if (meta.type === 'quiz') {
-        navigate(`/play/${c}`);
-      } else if (isAuthenticated) {
-        navigate(`/r/${c}`);
-      } else {
-        navigate(`/login?next=${encodeURIComponent(`/r/${c}`)}`);
-      }
+      navigate(resolveJoinTarget(meta, { isAuthenticated }));
     } catch (err) {
       setError(err.code === 'ROOM_NOT_FOUND' ? "We couldn't find that code." : err.message);
     } finally {
