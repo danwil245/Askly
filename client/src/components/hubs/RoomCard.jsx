@@ -16,7 +16,7 @@ const timeAgo = (iso) => {
 };
 
 /** A room row in a hub: title, type/status, current session, lifecycle actions. */
-export function RoomCard({ room, onReopen, onCloseClick, busy }) {
+export function RoomCard({ room, onReopen, onCloseClick, busy, chapters, onMove }) {
   const open = room.status === 'open';
   return (
     <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -47,6 +47,20 @@ export function RoomCard({ room, onReopen, onCloseClick, busy }) {
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {chapters && onMove && (
+          <select
+            value={room.chapterId || ''}
+            onChange={(e) => onMove(room.code, e.target.value)}
+            aria-label="Move to chapter"
+            className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs text-fg"
+          >
+            {chapters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
         <Link to={`/history/${room.code}`}>
           <Button variant="ghost" size="sm">
             History

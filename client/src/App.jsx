@@ -14,6 +14,8 @@ import { Login } from './pages/Login.jsx';
 import { Signup } from './pages/Signup.jsx';
 import { ComingSoon } from './pages/ComingSoon.jsx';
 import { SpeakerHub } from './pages/SpeakerHub.jsx';
+import { MentorHub } from './pages/MentorHub.jsx';
+import { ChapterPage } from './pages/ChapterPage.jsx';
 import { History } from './pages/History.jsx';
 import { SessionReport } from './pages/SessionReport.jsx';
 import { ToastProvider } from './hooks/useToast.jsx';
@@ -93,7 +95,15 @@ function AppRoutes() {
             path="/mentor"
             element={
               <RequireAuth>
-                <ComingSoon title="Mentor hub" note="Chapters and reusable course rooms." />
+                <MentorHub />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/mentor/chapters/:id"
+            element={
+              <RequireAuth>
+                <ChapterPage />
               </RequireAuth>
             }
           />

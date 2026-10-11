@@ -21,11 +21,16 @@ export const codeParamSchema = z.object({
     .regex(/^[A-Z0-9]{6}$/, 'Invalid join code'),
 });
 
-export const createRoomSchema = z.object({
-  type: z.enum(['qa', 'mentor']),
-  title: z.string().trim().min(1, 'Title is required').max(80),
-  chapterId: z.string().trim().min(1).optional(),
-});
+export const createRoomSchema = z
+  .object({
+    type: z.enum(['qa', 'mentor']),
+    title: z.string().trim().min(1, 'Title is required').max(80),
+    chapterId: z.string().trim().min(1).optional(),
+  })
+  .refine((o) => o.type !== 'mentor' || !!o.chapterId, {
+    message: 'A mentor room needs a chapter',
+    path: ['chapterId'],
+  });
 
 export const patchRoomSchema = z.object({
   title: z.string().trim().min(1).max(80).optional(),
