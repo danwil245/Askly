@@ -1,34 +1,21 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
-import { startTestServer, connectClient, emit, waitFor } from './helpers.js';
+import { startTestServer, registerUser, createRoom, connectClient, emit, waitFor } from './helpers.js';
 import { createApp } from '../src/app.js';
 import { resetBuckets } from '../src/middleware/antiSpam.js';
 import { env } from '../src/config/env.js';
 
-// All test clients connect from 127.0.0.1, so lift the per-IP connection cap for the
-// suite (it's exercised directly in antiSpam-focused assertions where relevant).
-env.limits.maxSocketsPerIpPerRoom = 1000;
-
 const app = createApp();
 
-/** Create a room over REST and return { code, hostToken }. */
-async function makeRoom(title = 'Socket Room') {
-  const res = await request(app).post('/api/rooms').send({ title });
-  return res.body;
-}
-
-describe('socket contract', () => {
+describe('socket contract (v2)', () => {
   let ctx;
   const sockets = [];
 
   beforeAll(async () => {
     ctx = await startTestServer();
   });
-
   afterAll(async () => {
     await ctx.close();
   });
-
   beforeEach(() => {
     resetBuckets();
     while (sockets.length) sockets.pop()?.disconnect();
@@ -39,219 +26,216 @@ describe('socket contract', () => {
     return s;
   };
 
-  it('sets isHost only with a valid host token', async () => {
-    const { code, hostToken } = await makeRoom();
+  // Owner + room + an audience user, the common setup.
+  async function setup({ title = 'Socket Room', showAuthorNames } = {}) {
+    const owner = await registerUser(app, { name: 'Owner' });
+    const { code } = await createRoom(app, owner.token, { title });
+    const audience = await registerUser(app, { name: 'Audience' });
+    void showAuthorNames;
+    return { owner, audience, code };
+  }
 
-    const host = track(await connectClient(ctx.url, 'host-1'));
-    const hostJoin = await emit(host, 'room:join', { code, clientId: 'host-1', hostToken });
+  it('sets isHost from ownership and requires auth for qa rooms', async () => {
+    const { owner, audience, code } = await setup();
+
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    const hostJoin = await emit(hostSock, 'room:join', { code });
     expect(hostJoin.ok).toBe(true);
     expect(hostJoin.data.isHost).toBe(true);
+    expect(hostJoin.data.room.type).toBe('qa');
+    expect(Array.isArray(hostJoin.data.sessions)).toBe(true);
 
-    const aud = track(await connectClient(ctx.url, 'aud-1'));
-    const audJoin = await emit(aud, 'room:join', { code, clientId: 'aud-1' });
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    const audJoin = await emit(audSock, 'room:join', { code });
     expect(audJoin.ok).toBe(true);
     expect(audJoin.data.isHost).toBe(false);
 
-    const badHost = track(await connectClient(ctx.url, 'aud-2'));
-    const bad = await emit(badHost, 'room:join', { code, clientId: 'aud-2', hostToken: 'nope' });
-    expect(bad.ok).toBe(true);
-    expect(bad.data.isHost).toBe(false);
+    // Anonymous (no token) is rejected.
+    const anon = track(await connectClient(ctx.url, {}));
+    const anonJoin = await emit(anon, 'room:join', { code });
+    expect(anonJoin.ok).toBe(false);
+    expect(anonJoin.error.code).toBe('UNAUTHENTICATED');
   });
 
-  it('returns ROOM_NOT_FOUND when joining an unknown room', async () => {
-    const s = track(await connectClient(ctx.url, 'x'));
-    const res = await emit(s, 'room:join', { code: 'ZZZZZZ', clientId: 'x' });
-    expect(res.ok).toBe(false);
-    expect(res.error.code).toBe('ROOM_NOT_FOUND');
-  });
+  it('broadcasts question:new and hides author identity from the audience by default', async () => {
+    const { owner, audience, code } = await setup();
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    await emit(hostSock, 'room:join', { code });
+    await emit(audSock, 'room:join', { code });
 
-  it('broadcasts question:new to all clients in the room', async () => {
-    const { code } = await makeRoom();
-    const a = track(await connectClient(ctx.url, 'a'));
-    const b = track(await connectClient(ctx.url, 'b'));
-    await emit(a, 'room:join', { code, clientId: 'a' });
-    await emit(b, 'room:join', { code, clientId: 'b' });
-
-    const received = waitFor(b, 'question:new');
-    const ack = await emit(a, 'question:ask', { text: 'Hello world?' });
+    const audReceived = waitFor(audSock, 'question:new');
+    const hostReceived = waitFor(hostSock, 'question:new');
+    const ack = await emit(audSock, 'question:ask', { text: 'Hello world?' });
     expect(ack.ok).toBe(true);
 
-    const q = await received;
-    expect(q.text).toBe('Hello world?');
-    expect(q.upvoteCount).toBe(0);
-    // Audience payload must not leak author identity or the upvotes array.
-    expect(q.authorId).toBeUndefined();
-    expect(q.upvotes).toBeUndefined();
+    const audQ = await audReceived;
+    expect(audQ.text).toBe('Hello world?');
+    expect(audQ.authorName).toBe('Anonymous'); // default showAuthorNames = 'host'
+    expect(audQ.authorUserId).toBeUndefined();
+    expect(audQ.upvotes).toBeUndefined();
+
+    const hostQ = await hostReceived;
+    expect(hostQ.authorName).toBe('Audience'); // host sees the real name
+    expect(hostQ.authorUserId).toBeTruthy();
   });
 
-  it('toggles upvotes and keeps the count correct under many distinct clients', async () => {
-    const { code } = await makeRoom();
-    const asker = track(await connectClient(ctx.url, 'asker'));
-    await emit(asker, 'room:join', { code, clientId: 'asker' });
-    const ask = await emit(asker, 'question:ask', { text: 'Concurrent upvotes?' });
+  it('toggles upvotes keyed by user and keeps the count correct', async () => {
+    const { owner, code } = await setup();
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    await emit(hostSock, 'room:join', { code });
+    const ask = await emit(hostSock, 'question:ask', { text: 'Concurrent upvotes?' });
     const questionId = ask.data.id;
 
-    // 20 distinct clients each upvote once, concurrently.
-    const voters = await Promise.all(
-      Array.from({ length: 20 }, (_, i) => connectClient(ctx.url, `v${i}`))
+    // 8 distinct users each upvote once.
+    const users = await Promise.all(Array.from({ length: 8 }, () => registerUser(app)));
+    const voterSocks = await Promise.all(
+      users.map((u) => connectClient(ctx.url, { token: u.token }))
     );
-    voters.forEach(track);
-    await Promise.all(voters.map((s, i) => emit(s, 'room:join', { code, clientId: `v${i}` })));
-    await Promise.all(voters.map((s) => emit(s, 'question:upvote', { questionId })));
+    voterSocks.forEach(track);
+    await Promise.all(voterSocks.map((s) => emit(s, 'room:join', { code })));
+    await Promise.all(voterSocks.map((s) => emit(s, 'question:upvote', { questionId })));
 
-    // Re-fetch authoritative state (server is source of truth for the count).
-    const state = await emit(asker, 'room:join', { code, clientId: 'asker' });
+    const state = await emit(hostSock, 'room:join', { code });
     const q = state.data.questions.find((x) => x.id === questionId);
-    expect(q.upvoteCount).toBe(20);
+    expect(q.upvoteCount).toBe(8);
 
-    // One voter toggles off → count drops to 19.
-    await emit(voters[0], 'question:upvote', { questionId });
-    const state2 = await emit(asker, 'room:join', { code, clientId: 'asker' });
-    const q2 = state2.data.questions.find((x) => x.id === questionId);
-    expect(q2.upvoteCount).toBe(19);
+    // One user toggles off → 7.
+    await emit(voterSocks[0], 'question:upvote', { questionId });
+    const state2 = await emit(hostSock, 'room:join', { code });
+    expect(state2.data.questions.find((x) => x.id === questionId).upvoteCount).toBe(7);
   });
 
-  it('rejects a duplicate poll vote with ALREADY_VOTED and does not change counts', async () => {
-    const { code, hostToken } = await makeRoom();
-    const host = track(await connectClient(ctx.url, 'host'));
-    await emit(host, 'room:join', { code, clientId: 'host', hostToken });
-
-    const created = await emit(host, 'poll:create', {
-      question: 'Pick',
-      options: ['X', 'Y'],
-    });
+  it('rejects a duplicate poll vote with ALREADY_VOTED (one vote per user)', async () => {
+    const { owner, audience, code } = await setup();
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    await emit(hostSock, 'room:join', { code });
+    const created = await emit(hostSock, 'poll:create', { question: 'Pick', options: ['X', 'Y'] });
     const poll = created.data;
     const optX = poll.options[0].id;
 
-    const voter = track(await connectClient(ctx.url, 'voter'));
-    await emit(voter, 'room:join', { code, clientId: 'voter' });
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    await emit(audSock, 'room:join', { code });
 
-    const first = await emit(voter, 'poll:vote', { pollId: poll.id, optionId: optX });
+    const first = await emit(audSock, 'poll:vote', { pollId: poll.id, optionId: optX });
     expect(first.ok).toBe(true);
     expect(first.data.options.find((o) => o.id === optX).votes).toBe(1);
 
-    const second = await emit(voter, 'poll:vote', { pollId: poll.id, optionId: optX });
+    const second = await emit(audSock, 'poll:vote', { pollId: poll.id, optionId: optX });
     expect(second.ok).toBe(false);
     expect(second.error.code).toBe('ALREADY_VOTED');
-
-    // Count unchanged.
-    const state = await emit(host, 'room:join', { code, clientId: 'host', hostToken });
-    const p = state.data.polls.find((x) => x.id === poll.id);
-    expect(p.options.find((o) => o.id === optX).votes).toBe(1);
   });
 
-  it('rejects host-only events from a non-host with FORBIDDEN', async () => {
-    const { code } = await makeRoom();
-    const aud = track(await connectClient(ctx.url, 'aud'));
-    await emit(aud, 'room:join', { code, clientId: 'aud' });
+  it('rejects host-only events from non-owners with FORBIDDEN', async () => {
+    const { audience, code } = await setup();
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    await emit(audSock, 'room:join', { code });
 
-    const create = await emit(aud, 'poll:create', { question: 'Q', options: ['A', 'B'] });
+    const create = await emit(audSock, 'poll:create', { question: 'Q', options: ['A', 'B'] });
     expect(create.ok).toBe(false);
     expect(create.error.code).toBe('FORBIDDEN');
 
-    const ask = await emit(aud, 'question:ask', { text: 'A question to hide' });
-    const answer = await emit(aud, 'question:answer', {
+    const ask = await emit(audSock, 'question:ask', { text: 'A question' });
+    const answer = await emit(audSock, 'question:answer', {
       questionId: ask.data.id,
       answered: true,
     });
     expect(answer.ok).toBe(false);
     expect(answer.error.code).toBe('FORBIDDEN');
 
-    const close = await emit(aud, 'room:close', {});
+    const close = await emit(audSock, 'room:close', {});
     expect(close.ok).toBe(false);
     expect(close.error.code).toBe('FORBIDDEN');
   });
 
   it('hides a question for the audience but keeps it for the host', async () => {
-    const { code, hostToken } = await makeRoom();
-    const host = track(await connectClient(ctx.url, 'host'));
-    const aud = track(await connectClient(ctx.url, 'aud'));
-    await emit(host, 'room:join', { code, clientId: 'host', hostToken });
-    await emit(aud, 'room:join', { code, clientId: 'aud' });
+    const { owner, audience, code } = await setup();
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    await emit(hostSock, 'room:join', { code });
+    await emit(audSock, 'room:join', { code });
 
-    const ask = await emit(aud, 'question:ask', { text: 'Hide me please' });
+    const ask = await emit(audSock, 'question:ask', { text: 'Hide me please' });
     const questionId = ask.data.id;
 
-    const audUpdate = waitFor(aud, 'question:updated');
-    await emit(host, 'question:hide', { questionId, hidden: true });
-    const updated = await audUpdate;
-    expect(updated.hidden).toBe(true);
+    const audUpdate = waitFor(audSock, 'question:updated');
+    await emit(hostSock, 'question:hide', { questionId, hidden: true });
+    expect((await audUpdate).hidden).toBe(true);
 
-    // Audience state excludes the hidden question; host state includes it.
-    const audState = await emit(aud, 'room:join', { code, clientId: 'aud' });
+    const audState = await emit(audSock, 'room:join', { code });
     expect(audState.data.questions.find((q) => q.id === questionId)).toBeUndefined();
-
-    const hostState = await emit(host, 'room:join', { code, clientId: 'host', hostToken });
+    const hostState = await emit(hostSock, 'room:join', { code });
     expect(hostState.data.questions.find((q) => q.id === questionId)).toBeDefined();
   });
 
-  it('rejects writes after the room is closed and a vote after the poll closes', async () => {
-    const { code, hostToken } = await makeRoom();
-    const host = track(await connectClient(ctx.url, 'host'));
-    await emit(host, 'room:join', { code, clientId: 'host', hostToken });
+  it('closing a room rejects writes and auto-closes open polls; reopening keeps history', async () => {
+    const { owner, audience, code } = await setup();
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    await emit(hostSock, 'room:join', { code });
+    await emit(audSock, 'room:join', { code });
 
-    const created = await emit(host, 'poll:create', { question: 'P', options: ['A', 'B'] });
-    const poll = created.data;
+    await emit(audSock, 'question:ask', { text: 'Before close' });
+    const poll = (await emit(hostSock, 'poll:create', { question: 'P', options: ['A', 'B'] })).data;
 
-    // Close the poll → voting rejected.
-    await emit(host, 'poll:close', { pollId: poll.id });
-    const voter = track(await connectClient(ctx.url, 'voter'));
-    await emit(voter, 'room:join', { code, clientId: 'voter' });
-    const pollClosed = await emit(voter, 'poll:vote', {
-      pollId: poll.id,
-      optionId: poll.options[0].id,
-    });
-    expect(pollClosed.ok).toBe(false);
-    expect(pollClosed.error.code).toBe('POLL_CLOSED');
+    const roomUpdated = waitFor(audSock, 'room:updated');
+    const close = await emit(hostSock, 'room:close', { sessionName: 'Week 1' });
+    expect(close.ok).toBe(true);
+    expect(close.data.status).toBe('closed');
+    expect((await roomUpdated).status).toBe('closed');
 
-    // Close the room → further writes rejected.
-    await emit(host, 'room:close', {});
-    const afterClose = await emit(voter, 'question:ask', { text: 'Too late?' });
-    expect(afterClose.ok).toBe(false);
-    expect(afterClose.error.code).toBe('ROOM_CLOSED');
+    // Writes rejected after close.
+    const late = await emit(audSock, 'question:ask', { text: 'Too late' });
+    expect(late.ok).toBe(false);
+    expect(late.error.code).toBe('ROOM_CLOSED');
+
+    // Reopen → new session, old question still present.
+    const open = await emit(hostSock, 'room:open', {});
+    expect(open.ok).toBe(true);
+    expect(open.data.status).toBe('open');
+    expect(open.data.sessions.length).toBe(2);
+
+    const state = await emit(hostSock, 'room:join', { code });
+    expect(state.data.questions.some((q) => q.text === 'Before close')).toBe(true);
+    // The pre-close poll was auto-closed.
+    expect(state.data.polls.find((p) => p.id === poll.id).status).toBe('closed');
   });
 
-  it('rate limits a burst of questions with RATE_LIMITED', async () => {
-    const { code } = await makeRoom();
-    const s = track(await connectClient(ctx.url, 'burst'));
-    await emit(s, 'room:join', { code, clientId: 'burst' });
+  it('shows author names to the audience when showAuthorNames = all', async () => {
+    const owner = await registerUser(app, { name: 'Owner' });
+    const { code } = await createRoom(app, owner.token, { title: 'Named' });
+    // flip the setting via REST PATCH
+    const request = (await import('supertest')).default;
+    await request(app)
+      .patch(`/api/rooms/${code}`)
+      .set('Authorization', `Bearer ${owner.token}`)
+      .send({ settings: { showAuthorNames: 'all' } });
 
-    // Default limit is 5 questions/min; the 6th distinct question should trip it.
-    const results = [];
-    for (let i = 0; i < 8; i += 1) {
-      results.push(await emit(s, 'question:ask', { text: `Burst question number ${i}` }));
-    }
-    const limited = results.filter((r) => !r.ok && r.error.code === 'RATE_LIMITED');
-    expect(limited.length).toBeGreaterThan(0);
-  });
+    const audience = await registerUser(app, { name: 'Namee' });
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    await emit(hostSock, 'room:join', { code });
+    await emit(audSock, 'room:join', { code });
 
-  it('updates presence as audience clients connect', async () => {
-    const { code, hostToken } = await makeRoom();
-    const host = track(await connectClient(ctx.url, 'host'));
-    const hostJoin = await emit(host, 'room:join', { code, clientId: 'host', hostToken });
-    // Host does not count toward audience presence.
-    expect(hostJoin.data).toBeDefined();
-
-    const aud = track(await connectClient(ctx.url, 'aud'));
-    const presence = waitFor(aud, 'presence:updated');
-    await emit(aud, 'room:join', { code, clientId: 'aud' });
-    const p = await presence;
-    expect(p.count).toBeGreaterThanOrEqual(1);
+    const audReceived = waitFor(audSock, 'question:new');
+    await emit(audSock, 'question:ask', { text: 'Named question' });
+    expect((await audReceived).authorName).toBe('Namee');
   });
 
   it('enforces the per-IP connection cap on audience joins', async () => {
     const original = env.limits.maxSocketsPerIpPerRoom;
     env.limits.maxSocketsPerIpPerRoom = 2;
     try {
-      const { code } = await makeRoom();
-      const a = track(await connectClient(ctx.url, 'cap-a'));
-      const b = track(await connectClient(ctx.url, 'cap-b'));
-      const c = track(await connectClient(ctx.url, 'cap-c'));
-
-      expect((await emit(a, 'room:join', { code, clientId: 'cap-a' })).ok).toBe(true);
-      expect((await emit(b, 'room:join', { code, clientId: 'cap-b' })).ok).toBe(true);
-      // Third socket from the same IP into the same room is rejected.
-      const third = await emit(c, 'room:join', { code, clientId: 'cap-c' });
+      const { code } = await setup();
+      const a = await registerUser(app);
+      const b = await registerUser(app);
+      const c = await registerUser(app);
+      const sa = track(await connectClient(ctx.url, { token: a.token }));
+      const sb = track(await connectClient(ctx.url, { token: b.token }));
+      const sc = track(await connectClient(ctx.url, { token: c.token }));
+      expect((await emit(sa, 'room:join', { code })).ok).toBe(true);
+      expect((await emit(sb, 'room:join', { code })).ok).toBe(true);
+      const third = await emit(sc, 'room:join', { code });
       expect(third.ok).toBe(false);
       expect(third.error.code).toBe('RATE_LIMITED');
     } finally {

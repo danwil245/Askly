@@ -3,13 +3,23 @@ import mongoose from 'mongoose';
 const roomSchema = new mongoose.Schema(
   {
     code: { type: String, required: true, unique: true, index: true },
+    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    type: { type: String, enum: ['qa', 'mentor', 'quiz'], required: true },
     title: { type: String, required: true, minlength: 1, maxlength: 80, trim: true },
-    // sha256 of the host token — the raw token is returned exactly once at creation.
-    hostTokenHash: { type: String, required: true },
+    // Required for mentor rooms; null otherwise.
+    chapterId: { type: mongoose.Schema.Types.ObjectId, ref: 'Chapter', default: null },
+    // Only set for quiz rooms.
+    quizId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz', default: null },
     status: { type: String, enum: ['open', 'closed'], default: 'open' },
+    currentSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', default: null },
+    settings: {
+      // 'host': audience sees "Anonymous", host sees the asker's name. 'all': everyone sees names.
+      showAuthorNames: { type: String, enum: ['host', 'all'], default: 'host' },
+    },
   },
   { timestamps: true }
 );
 
-// Guard against re-compilation when test files reload the module graph.
+roomSchema.index({ ownerId: 1, type: 1, chapterId: 1 });
+
 export const Room = mongoose.models.Room || mongoose.model('Room', roomSchema);

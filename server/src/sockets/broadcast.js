@@ -14,26 +14,45 @@ import { log } from '../utils/logger.js';
 
 const hostRoom = (code) => `${code}:host`;
 
+// Shared io instance so REST controllers can broadcast through the same layer as the
+// socket handlers (keeps lifecycle broadcasts consistent). Set in attachSockets().
+let ioRef = null;
+export function setIo(io) {
+  ioRef = io;
+}
+export function getIo() {
+  return ioRef;
+}
+
 export function roomOf(code) {
   return code;
 }
 
 /**
  * Broadcast a question to the room, respecting the host/audience field split.
- * Hosts get the full object (authorId + upvotes); audience gets the redacted form.
+ * Hosts get the full object (authorUserId + upvotes + real name); audience gets the
+ * redacted form, with the name shown only when `showNames` (showAuthorNames === 'all').
  */
-export function emitQuestion(io, code, event, questionDoc) {
-  io.to(hostRoom(code)).emit(event, serializeQuestion(questionDoc, true));
-  // Audience = everyone in the room who is NOT in the host sub-room.
-  io.to(code).except(hostRoom(code)).emit(event, serializeQuestion(questionDoc, false));
+export function emitQuestion(io, code, event, questionDoc, showNames = false) {
+  io.to(hostRoom(code)).emit(event, serializeQuestion(questionDoc, { isHost: true, showNames }));
+  io
+    .to(code)
+    .except(hostRoom(code))
+    .emit(event, serializeQuestion(questionDoc, { isHost: false, showNames }));
 }
 
 export function emitPoll(io, code, event, pollDoc) {
   io.to(code).emit(event, serializePoll(pollDoc));
 }
 
-export function emitRoomUpdated(io, code, status) {
-  io.to(code).emit('room:updated', { status });
+/** `room:updated` payload is { status, currentSessionId, sessions } (v2 section 8). */
+export function emitRoomUpdated(io, code, payload) {
+  io.to(code).emit('room:updated', payload);
+}
+
+/** Session rename → host room only. */
+export function emitSessionRenamed(io, code, session) {
+  io.to(hostRoom(code)).emit('session:renamed', { id: String(session._id), name: session.name });
 }
 
 export function emitPresence(io, code, count) {

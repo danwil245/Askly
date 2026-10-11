@@ -22,19 +22,19 @@ export function registerPollHandlers(io, socket) {
     })
   );
 
-  // Audience/host: vote.
+  // Audience/host: vote (keyed by userId).
   socket.on(
     'poll:vote',
     withAck(async (payload) => {
       const code = requireJoined(socket);
-      enforceSocketLimit('vote', { clientId: socket.data.clientId, ip: socket.data.ip });
+      enforceSocketLimit('vote', { id: socket.data.userId, ip: socket.data.ip });
       const { pollId, optionId } = pollVoteSchema.parse(payload || {});
 
       const poll = await recordVote({
         roomCode: code,
         pollId,
         optionId,
-        clientId: socket.data.clientId,
+        userId: socket.data.userId,
       });
       emitPoll(io, code, 'poll:updated', poll);
       scheduleAnalytics(io, code);

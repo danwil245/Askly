@@ -1,20 +1,25 @@
 import { Question } from '../models/Question.js';
 import { Poll } from '../models/Poll.js';
 import { Vote } from '../models/Vote.js';
-import { getRoomOrThrow } from './roomService.js';
+import { getRoomByCodeOrThrow } from './roomService.js';
+import { requireObjectId } from '../utils/ids.js';
 
 /**
- * Area C — analytics. Computed with MongoDB aggregation pipelines rather than loading
- * documents into memory. Returns the snapshot shape described in spec section 11.
+ * Analytics via aggregation pipelines. Scoped to a single session when `sessionId` is
+ * given, otherwise room-wide (all sessions). Shape matches v1 section 11 plus session
+ * scoping (v2 section 7).
  */
-export async function getSnapshot(code) {
-  await getRoomOrThrow(code); // 404 if missing
+export async function getSnapshot(code, { sessionId } = {}) {
+  const room = await getRoomByCodeOrThrow(code);
+  if (sessionId) requireObjectId(sessionId, 'Session');
 
-  const [questionAgg, upvoteParticipants, pollDocs, voteAgg, voteParticipants, overTime] =
+  const match = sessionId ? { roomId: room._id, sessionId } : { roomId: room._id };
+  const voteMatch = match;
+
+  const [questionAgg, qParticipants, pollDocs, voteAgg, voteParticipants, overTime, topQuestions] =
     await Promise.all([
-      // Question totals in a single pass.
       Question.aggregate([
-        { $match: { roomCode: code } },
+        { $match: match },
         {
           $group: {
             _id: null,
@@ -26,44 +31,35 @@ export async function getSnapshot(code) {
           },
         },
       ]),
-      // Distinct clientIds who asked or upvoted.
       Question.aggregate([
-        { $match: { roomCode: code } },
-        { $project: { ids: { $concatArrays: [['$authorId'], { $ifNull: ['$upvotes', []] }] } } },
+        { $match: match },
+        {
+          $project: {
+            ids: {
+              $concatArrays: [[{ $toString: '$authorUserId' }], { $ifNull: ['$upvotes', []] }],
+            },
+          },
+        },
         { $unwind: '$ids' },
         { $group: { _id: '$ids' } },
       ]),
-      Poll.find({ roomCode: code }).sort({ createdAt: 1 }).lean(),
-      Vote.aggregate([{ $match: { roomCode: code } }, { $count: 'votes' }]),
-      Vote.aggregate([{ $match: { roomCode: code } }, { $group: { _id: '$clientId' } }]),
-      // Questions bucketed per minute.
+      Poll.find(match).sort({ createdAt: 1 }).lean(),
+      Vote.aggregate([{ $match: voteMatch }, { $count: 'votes' }]),
+      Vote.aggregate([{ $match: voteMatch }, { $group: { _id: '$userId' } }]),
       Question.aggregate([
-        { $match: { roomCode: code } },
-        {
-          $group: {
-            _id: {
-              $dateTrunc: { date: '$createdAt', unit: 'minute' },
-            },
-            count: { $sum: 1 },
-          },
-        },
+        { $match: match },
+        { $group: { _id: { $dateTrunc: { date: '$createdAt', unit: 'minute' } }, count: { $sum: 1 } } },
         { $sort: { _id: 1 } },
       ]),
+      Question.find(match).sort({ upvoteCount: -1, createdAt: 1 }).limit(5).lean(),
     ]);
 
-  const qStats = questionAgg[0] || {
-    questions: 0,
-    answered: 0,
-    hidden: 0,
-    visible: 0,
-    upvotes: 0,
-  };
+  const qStats = questionAgg[0] || { questions: 0, answered: 0, hidden: 0, visible: 0, upvotes: 0 };
   const votesTotal = voteAgg[0]?.votes || 0;
 
-  // uniqueParticipants: distinct clientIds across questions, upvotes, and votes.
   const participantSet = new Set([
-    ...upvoteParticipants.map((p) => p._id),
-    ...voteParticipants.map((p) => p._id),
+    ...qParticipants.map((p) => String(p._id)),
+    ...voteParticipants.map((p) => String(p._id)),
   ]);
 
   const polls = pollDocs.map((poll) => {
@@ -78,19 +74,15 @@ export async function getSnapshot(code) {
         votes: o.votes || 0,
         percent: totalVotes ? Math.round(((o.votes || 0) / totalVotes) * 1000) / 10 : 0,
       })),
-      // Participation relative to the room's unique participants.
       participationRate: participantSet.size
         ? Math.round((totalVotes / participantSet.size) * 1000) / 10
         : 0,
     };
   });
 
-  const topQuestions = await Question.find({ roomCode: code })
-    .sort({ upvoteCount: -1, createdAt: 1 })
-    .limit(5)
-    .lean();
-
   return {
+    scope: sessionId ? 'session' : 'room',
+    sessionId: sessionId ? String(sessionId) : null,
     totals: {
       questions: qStats.questions,
       answered: qStats.answered,

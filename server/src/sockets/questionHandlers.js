@@ -6,20 +6,27 @@ import { enforceSocketLimit } from '../middleware/antiSpam.js';
 import { emitQuestion, scheduleAnalytics } from './broadcast.js';
 import { serializeQuestion } from '../utils/serialize.js';
 
+const showNamesOf = (room) => room.settings?.showAuthorNames === 'all';
+
 export function registerQuestionHandlers(io, socket) {
   socket.on(
     'question:ask',
     withAck(async (payload) => {
       const code = requireJoined(socket);
-      enforceSocketLimit('question', { clientId: socket.data.clientId, ip: socket.data.ip });
+      enforceSocketLimit('question', { id: socket.data.userId, ip: socket.data.ip });
       const { text } = questionAskSchema.parse(payload || {});
 
-      const q = await createQuestion({ roomCode: code, text, authorId: socket.data.clientId });
-      emitQuestion(io, code, 'question:new', q);
+      const { question, room } = await createQuestion({
+        roomCode: code,
+        text,
+        authorUserId: socket.data.userId,
+        authorName: socket.data.user.name,
+      });
+      const showNames = showNamesOf(room);
+      emitQuestion(io, code, 'question:new', question, showNames);
       scheduleAnalytics(io, code);
 
-      // Ack the author with their own (host-shaped so they see their authorId) view.
-      return serializeQuestion(q, socket.data.isHost);
+      return serializeQuestion(question, { isHost: socket.data.isHost, showNames });
     })
   );
 
@@ -27,15 +34,23 @@ export function registerQuestionHandlers(io, socket) {
     'question:upvote',
     withAck(async (payload) => {
       const code = requireJoined(socket);
-      enforceSocketLimit('upvote', { clientId: socket.data.clientId, ip: socket.data.ip });
+      enforceSocketLimit('upvote', { id: socket.data.userId, ip: socket.data.ip });
       const { questionId } = questionUpvoteSchema.parse(payload || {});
 
-      const q = await toggleUpvote({ roomCode: code, questionId, clientId: socket.data.clientId });
-      emitQuestion(io, code, 'question:updated', q);
+      const { question, room } = await toggleUpvote({
+        roomCode: code,
+        questionId,
+        userId: socket.data.userId,
+      });
+      const showNames = showNamesOf(room);
+      emitQuestion(io, code, 'question:updated', question, showNames);
       scheduleAnalytics(io, code);
 
-      const mine = (q.upvotes || []).includes(socket.data.clientId);
-      return { ...serializeQuestion(q, socket.data.isHost), upvotedByMe: mine };
+      const mine = (question.upvotes || []).includes(String(socket.data.userId));
+      return {
+        ...serializeQuestion(question, { isHost: socket.data.isHost, showNames }),
+        upvotedByMe: mine,
+      };
     })
   );
 }

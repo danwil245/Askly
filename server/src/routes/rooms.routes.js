@@ -1,22 +1,64 @@
 import { Router } from 'express';
 import {
-  postRoom,
   getRoom,
+  postRoom,
+  getMine,
+  patchRoom,
+  openRoom,
+  closeRoom,
+  getRoomSessions,
   getAnalytics,
-  createRoomSchema,
   codeParamSchema,
+  createRoomSchema,
+  patchRoomSchema,
+  mineQuerySchema,
+  analyticsQuerySchema,
+  closeRoomSchema,
 } from '../controllers/rooms.controller.js';
 import { validate } from '../middleware/validate.js';
-import { hostAuth } from '../middleware/hostAuth.js';
+import { requireAuth } from '../middleware/auth.js';
 import { roomCreateLimiter } from '../middleware/antiSpam.js';
 
 export const roomsRouter = Router();
 
-// Create a room (rate limited per IP).
-roomsRouter.post('/', roomCreateLimiter, validate(createRoomSchema, 'body'), postRoom);
+// Create a room (auth + per-user rate limit).
+roomsRouter.post('/', requireAuth, roomCreateLimiter, validate(createRoomSchema, 'body'), postRoom);
 
-// Public room meta so the join page can validate a code.
+// The caller's rooms — registered before '/:code' so it isn't shadowed.
+roomsRouter.get('/mine', requireAuth, validate(mineQuerySchema, 'query'), getMine);
+
+// Public room meta so the landing join box can route by type.
 roomsRouter.get('/:code', validate(codeParamSchema, 'params'), getRoom);
 
-// Host-only full analytics snapshot.
-roomsRouter.get('/:code/analytics', validate(codeParamSchema, 'params'), hostAuth, getAnalytics);
+roomsRouter.patch(
+  '/:code',
+  requireAuth,
+  validate(codeParamSchema, 'params'),
+  validate(patchRoomSchema, 'body'),
+  patchRoom
+);
+
+roomsRouter.post('/:code/open', requireAuth, validate(codeParamSchema, 'params'), openRoom);
+
+roomsRouter.post(
+  '/:code/close',
+  requireAuth,
+  validate(codeParamSchema, 'params'),
+  validate(closeRoomSchema, 'body'),
+  closeRoom
+);
+
+roomsRouter.get(
+  '/:code/sessions',
+  requireAuth,
+  validate(codeParamSchema, 'params'),
+  getRoomSessions
+);
+
+roomsRouter.get(
+  '/:code/analytics',
+  requireAuth,
+  validate(codeParamSchema, 'params'),
+  validate(analyticsQuerySchema, 'query'),
+  getAnalytics
+);

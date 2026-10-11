@@ -1,15 +1,20 @@
 import { withAck } from '../utils/ack.js';
-import { questionAnswerSchema, questionHideSchema, roomCloseSchema } from './schemas.js';
+import {
+  questionAnswerSchema,
+  questionHideSchema,
+  roomCloseSchema,
+  roomOpenSchema,
+} from './schemas.js';
 import { setAnswered, setHidden } from '../services/moderationService.js';
-import { closeRoom } from '../services/roomService.js';
+import { getRoomByCodeOrThrow, assertOwner } from '../services/roomService.js';
+import * as lifecycle from '../services/roomLifecycleService.js';
 import { requireJoined, requireHost } from './guards.js';
 import { emitQuestion, emitRoomUpdated, scheduleAnalytics } from './broadcast.js';
 import { serializeQuestion } from '../utils/serialize.js';
 
-/**
- * Area C — host-only moderation handlers. Every handler calls requireHost; a non-host
- * socket emitting these events gets FORBIDDEN via the ack.
- */
+const showNamesOf = (room) => room.settings?.showAuthorNames === 'all';
+
+/** Host-only moderation + room lifecycle handlers (ownership enforced via requireHost). */
 export function registerModerationHandlers(io, socket) {
   socket.on(
     'question:answer',
@@ -18,10 +23,10 @@ export function registerModerationHandlers(io, socket) {
       requireHost(socket);
       const { questionId, answered } = questionAnswerSchema.parse(payload || {});
 
-      const q = await setAnswered({ roomCode: code, questionId, answered });
-      emitQuestion(io, code, 'question:updated', q);
+      const { question, room } = await setAnswered({ roomCode: code, questionId, answered });
+      emitQuestion(io, code, 'question:updated', question, showNamesOf(room));
       scheduleAnalytics(io, code);
-      return serializeQuestion(q, true);
+      return serializeQuestion(question, { isHost: true, showNames: showNamesOf(room) });
     })
   );
 
@@ -32,11 +37,10 @@ export function registerModerationHandlers(io, socket) {
       requireHost(socket);
       const { questionId, hidden } = questionHideSchema.parse(payload || {});
 
-      const q = await setHidden({ roomCode: code, questionId, hidden });
-      // Audience clients treat a `hidden: true` update as a removal; host keeps it.
-      emitQuestion(io, code, 'question:updated', q);
+      const { question, room } = await setHidden({ roomCode: code, questionId, hidden });
+      emitQuestion(io, code, 'question:updated', question, showNamesOf(room));
       scheduleAnalytics(io, code);
-      return serializeQuestion(q, true);
+      return serializeQuestion(question, { isHost: true, showNames: showNamesOf(room) });
     })
   );
 
@@ -45,12 +49,34 @@ export function registerModerationHandlers(io, socket) {
     withAck(async (payload) => {
       const code = requireJoined(socket);
       requireHost(socket);
-      roomCloseSchema.parse(payload ?? {});
+      const { sessionName } = roomCloseSchema.parse(payload ?? {}) || {};
 
-      const room = await closeRoom(code);
-      emitRoomUpdated(io, code, room.status);
+      const room = await getRoomByCodeOrThrow(code);
+      assertOwner(room, socket.data.userId);
+      await lifecycle.close(room, { sessionName });
+
+      const updated = await lifecycle.roomUpdatedPayload(room);
+      emitRoomUpdated(io, code, updated);
       scheduleAnalytics(io, code);
-      return room;
+      return updated;
+    })
+  );
+
+  socket.on(
+    'room:open',
+    withAck(async (payload) => {
+      const code = requireJoined(socket);
+      requireHost(socket);
+      roomOpenSchema.parse(payload ?? {});
+
+      const room = await getRoomByCodeOrThrow(code);
+      assertOwner(room, socket.data.userId);
+      await lifecycle.open(room);
+
+      const updated = await lifecycle.roomUpdatedPayload(room);
+      emitRoomUpdated(io, code, updated);
+      scheduleAnalytics(io, code);
+      return updated;
     })
   );
 }

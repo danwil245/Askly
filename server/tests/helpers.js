@@ -1,11 +1,12 @@
 import http from 'node:http';
+import crypto from 'node:crypto';
+import request from 'supertest';
 import { io as ioClient } from 'socket.io-client';
 import { createApp } from '../src/app.js';
 import { attachSockets } from '../src/sockets/index.js';
 
 /**
- * Boot an HTTP server with the Express app + Socket.io attached, listening on a random
- * free port. Returns the base URL and a close() to tear it down.
+ * Boot an HTTP server with the Express app + Socket.io attached on a random free port.
  */
 export async function startTestServer() {
   const app = createApp();
@@ -18,19 +19,33 @@ export async function startTestServer() {
     url,
     server,
     io,
-    // Close io first (disconnects live sockets) so the HTTP server can actually close.
-    close: () =>
-      new Promise((resolve) => {
-        io.close(() => server.close(resolve));
-      }),
+    close: () => new Promise((resolve) => io.close(() => server.close(resolve))),
   };
 }
 
-/** Connect a socket.io client with the given clientId; resolves once connected. */
-export function connectClient(url, clientId) {
+/** Register a fresh user via REST; returns { token, user }. */
+export async function registerUser(app, overrides = {}) {
+  const email = overrides.email || `u_${crypto.randomUUID()}@example.com`;
+  const res = await request(app)
+    .post('/api/auth/signup')
+    .send({ name: overrides.name || 'Test User', email, password: overrides.password || 'password123' });
+  return res.body;
+}
+
+/** Create a qa/mentor room owned by `token`; returns { code, room, currentSession }. */
+export async function createRoom(app, token, { type = 'qa', title = 'Test Room', chapterId } = {}) {
+  const res = await request(app)
+    .post('/api/rooms')
+    .set('Authorization', `Bearer ${token}`)
+    .send({ type, title, chapterId });
+  return { ...res.body, code: res.body?.room?.code, status: res.status };
+}
+
+/** Connect a socket.io client with an optional JWT + clientId; resolves once connected. */
+export function connectClient(url, { token, clientId } = {}) {
   const socket = ioClient(url, {
     transports: ['websocket'],
-    auth: { clientId },
+    auth: { token, clientId },
     forceNew: true,
   });
   return new Promise((resolve, reject) => {

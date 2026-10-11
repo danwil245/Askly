@@ -11,7 +11,9 @@ const optionSchema = new mongoose.Schema(
 
 const pollSchema = new mongoose.Schema(
   {
+    roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Room', required: true },
     roomCode: { type: String, required: true, index: true },
+    sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', required: true },
     question: { type: String, required: true, minlength: 1, maxlength: 140, trim: true },
     options: {
       type: [optionSchema],

@@ -62,3 +62,25 @@ simplest consistent option and record it here.
   button unless both `VITE_GOOGLE_CLIENT_ID` and the server's `/health.googleEnabled` are true.
 - **Socket identity:** the handshake now verifies the JWT (`socket.data.user`) while still carrying
   `clientId` (needed by future quiz players who connect without a token).
+
+### Phase 2: Ownership, Sessions, identity
+
+- **One lifecycle service** (`roomLifecycleService`) owns open/close/reopen and is called by both
+  the REST routes and the socket handlers, so behavior can't diverge (spec section 7/15). REST
+  controllers broadcast `room:updated` through a shared `io` reference stored on the broadcast
+  module (`setIo`/`getIo`) during `attachSockets`, so lifecycle changes made over REST still reach
+  connected sockets. When no sockets are attached (unit tests) the broadcast is a no-op.
+- **Keep-everything model:** questions/polls/votes are tagged with `sessionId` but queried by
+  `roomId`, so a reopened room shows all prior content. `room:state` returns items across all
+  sessions (capped at 500 questions / 100 polls); full history is available via
+  `GET /api/sessions/:id`.
+- **Author-name visibility** is computed at serialization time from `room.settings.showAuthorNames`.
+  The acting socket's view of the setting is used for a broadcast (captured from the freshly-loaded
+  room on each write), so it's current without extra queries. Non-hosts never receive
+  `authorUserId` or the `upvotes` array.
+- **Identity is `userId`** for qa/mentor votes, upvotes, and rate limits; the unique
+  `(pollId, userId)` Vote index is the hard one-vote-per-account guarantee.
+- **Legacy v1 data** (no `ownerId`/`sessionId`) is unreachable in v2; `purge-legacy-rooms.js`
+  deletes it. No migration — v1 was anonymous and pre-accounts.
+- The v1 `hostToken`/`hostAuth` mechanism is removed; host status is derived purely from ownership
+  (`user.id === room.ownerId`), checked server-side everywhere via the shared `assertOwned`.

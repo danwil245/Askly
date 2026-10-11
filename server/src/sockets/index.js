@@ -7,7 +7,7 @@ import { registerRoomHandlers } from './roomHandlers.js';
 import { registerQuestionHandlers } from './questionHandlers.js';
 import { registerPollHandlers } from './pollHandlers.js';
 import { registerModerationHandlers } from './moderationHandlers.js';
-import { emitPresence } from './broadcast.js';
+import { emitPresence, setIo } from './broadcast.js';
 import { presenceCount } from './presence.js';
 
 /** Best-effort client IP, honoring a single proxy hop. */
@@ -21,6 +21,7 @@ export function attachSockets(httpServer) {
   const io = new Server(httpServer, {
     cors: { origin: env.clientOrigin, methods: ['GET', 'POST'] },
   });
+  setIo(io); // expose to REST controllers for consistent lifecycle broadcasts
 
   // Handshake auth: verify the JWT if present (sets socket.data.user) and carry the
   // anonymous clientId (used by quiz players, who connect without a token).

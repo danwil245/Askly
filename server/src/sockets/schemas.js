@@ -20,13 +20,9 @@ const code = z
   .toUpperCase()
   .regex(/^[A-Z0-9]{6}$/, 'Join code must be 6 characters');
 
-const clientId = z.string().trim().min(1).max(100);
-
-export const roomJoinSchema = z.object({
-  code,
-  clientId,
-  hostToken: z.string().trim().min(1).optional(),
-});
+// v2: room:join carries only { code }. Identity comes from the handshake token; the
+// server decides isHost from ownership. There is no hostToken anymore.
+export const roomJoinSchema = z.object({ code });
 
 export const questionAskSchema = z.object({
   text: z
@@ -67,4 +63,8 @@ export const pollCloseSchema = z.object({
   pollId: z.string().trim().min(1),
 });
 
-export const roomCloseSchema = z.object({}).optional();
+export const roomCloseSchema = z
+  .object({ sessionName: z.string().transform(cleanText).pipe(z.string().max(100)).optional() })
+  .optional();
+
+export const roomOpenSchema = z.object({}).optional();
