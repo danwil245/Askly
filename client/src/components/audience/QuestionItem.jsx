@@ -29,6 +29,9 @@ export function QuestionItem({ question, mine, onUpvote, disabled }) {
 
       <div className="min-w-0 flex-1">
         <p className="whitespace-pre-wrap break-words text-[15px] leading-snug text-fg">{text}</p>
+        {question.authorName && question.authorName !== 'Anonymous' && (
+          <p className="mt-0.5 text-xs text-muted">{question.authorName}</p>
+        )}
         {answered && (
           <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
             <Icon.Check width={13} height={13} />

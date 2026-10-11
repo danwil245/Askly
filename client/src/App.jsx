@@ -13,6 +13,9 @@ import { AudienceRoom } from './pages/AudienceRoom.jsx';
 import { Login } from './pages/Login.jsx';
 import { Signup } from './pages/Signup.jsx';
 import { ComingSoon } from './pages/ComingSoon.jsx';
+import { SpeakerHub } from './pages/SpeakerHub.jsx';
+import { History } from './pages/History.jsx';
+import { SessionReport } from './pages/SessionReport.jsx';
 import { ToastProvider } from './hooks/useToast.jsx';
 import { Toaster } from './components/shared/Toaster.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
@@ -66,7 +69,23 @@ function AppRoutes() {
             path="/speaker"
             element={
               <RequireAuth>
-                <ComingSoon title="Speaker hub" note="Create and manage your Q&A rooms here." />
+                <SpeakerHub />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/history/:roomCode"
+            element={
+              <RequireAuth>
+                <History />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/history/session/:sessionId"
+            element={
+              <RequireAuth>
+                <SessionReport />
               </RequireAuth>
             }
           />

@@ -1,18 +1,20 @@
-// Pure reducer applying server events (and a couple of optimistic local actions) to
-// room state. The server is the source of truth — counts are never computed here;
-// optimistic toggles are reconciled by the next broadcast.
+// Pure reducer applying server events (and optimistic local actions) to room state (v2).
+// The server is the source of truth — counts are never computed here; optimistic toggles
+// are reconciled by the next broadcast.
 
 export const initialState = {
   connection: 'idle', // idle | connecting | connected | reconnecting | error
-  room: null, // { code, title, status }
+  room: null, // { code, title, type, status, chapter?, settings }
   isHost: false,
-  questions: [], // question objects (unsorted; sorting is a render concern)
+  currentSessionId: null,
+  sessions: [], // [{ id, name, startedAt, endedAt, status }]
+  questions: [], // question objects (each carries sessionId)
   polls: [],
   myVotes: {}, // { [pollId]: optionId }
   myUpvotes: [], // [questionId]
   presence: 0,
   analytics: null,
-  fatal: null, // { code, message } — e.g. ROOM_NOT_FOUND
+  fatal: null, // { code, message } — e.g. ROOM_NOT_FOUND / UNAUTHENTICATED
 };
 
 function upsert(list, item) {
@@ -37,6 +39,8 @@ export function roomReducer(state, action) {
         ...state,
         room: s.room,
         isHost: s.isHost,
+        currentSessionId: s.currentSessionId,
+        sessions: s.sessions || [],
         questions: s.questions,
         polls: s.polls,
         myVotes: s.myVotes || {},
@@ -51,7 +55,6 @@ export function roomReducer(state, action) {
 
     case 'QUESTION_UPDATED': {
       const q = action.question;
-      // Audience removes a question that just became hidden.
       if (q.hidden && !state.isHost) {
         return { ...state, questions: state.questions.filter((x) => x.id !== q.id) };
       }
@@ -65,7 +68,20 @@ export function roomReducer(state, action) {
       return { ...state, polls: upsert(state.polls, action.poll) };
 
     case 'ROOM_UPDATED':
-      return { ...state, room: state.room ? { ...state.room, status: action.status } : state.room };
+      return {
+        ...state,
+        room: state.room ? { ...state.room, status: action.status } : state.room,
+        currentSessionId: action.currentSessionId ?? state.currentSessionId,
+        sessions: action.sessions || state.sessions,
+      };
+
+    case 'SESSION_RENAMED':
+      return {
+        ...state,
+        sessions: state.sessions.map((s) =>
+          s.id === action.id ? { ...s, name: action.name } : s
+        ),
+      };
 
     case 'PRESENCE':
       return { ...state, presence: action.count };
@@ -73,7 +89,7 @@ export function roomReducer(state, action) {
     case 'ANALYTICS':
       return { ...state, analytics: action.snapshot };
 
-    // --- optimistic local actions (reconciled by server broadcast) ---
+    // --- optimistic local actions ---
     case 'OPTIMISTIC_UPVOTE': {
       const { questionId } = action;
       const had = state.myUpvotes.includes(questionId);
@@ -89,9 +105,6 @@ export function roomReducer(state, action) {
     }
 
     case 'OPTIMISTIC_VOTE':
-      return { ...state, myVotes: { ...state.myVotes, [action.pollId]: action.optionId } };
-
-    case 'SET_MY_VOTE':
       return { ...state, myVotes: { ...state.myVotes, [action.pollId]: action.optionId } };
 
     case 'RESET':

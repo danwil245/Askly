@@ -1,31 +1,23 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { getSocket, emitAck } from '../socket/socket.js';
-import { getClientId } from '../lib/clientId.js';
 import { roomReducer, initialState } from '../state/roomReducer.js';
 
 /**
- * Owns the socket lifecycle for a room: connect, join, resync on every reconnect,
- * and translate server events into reducer actions. Returns state + bound actions.
- *
- * @param {string} code      room join code
- * @param {string} [hostToken] host token if this client is the presenter
+ * Owns the socket lifecycle for a qa/mentor room: connect, join, resync on every
+ * reconnect, and translate server events into reducer actions. Identity comes from the
+ * socket handshake JWT; there is no hostToken in v2.
  */
-export function useRoom(code, hostToken) {
+export function useRoom(code) {
   const [state, dispatch] = useReducer(roomReducer, initialState);
   const codeRef = useRef(code);
-  const tokenRef = useRef(hostToken);
+  const prevStatusRef = useRef(null);
   codeRef.current = code;
-  tokenRef.current = hostToken;
 
-  // Join (and resync) by emitting room:join; its ack carries the full room:state.
   const join = useCallback(async () => {
     try {
-      const state = await emitAck('room:join', {
-        code: codeRef.current,
-        clientId: getClientId(),
-        hostToken: tokenRef.current || undefined,
-      });
-      dispatch({ type: 'ROOM_STATE', state });
+      const next = await emitAck('room:join', { code: codeRef.current });
+      prevStatusRef.current = next.room?.status;
+      dispatch({ type: 'ROOM_STATE', state: next });
     } catch (err) {
       dispatch({ type: 'FATAL', error: { code: err.code, message: err.message } });
     }
@@ -37,7 +29,6 @@ export function useRoom(code, hostToken) {
 
     const onConnect = () => {
       dispatch({ type: 'CONNECTION', status: 'connected' });
-      // Re-emit join on every (re)connect to resync full state.
       join();
     };
     const onDisconnect = () => dispatch({ type: 'CONNECTION', status: 'reconnecting' });
@@ -47,7 +38,14 @@ export function useRoom(code, hostToken) {
     const onQuestionUpdated = (q) => dispatch({ type: 'QUESTION_UPDATED', question: q });
     const onPollNew = (p) => dispatch({ type: 'POLL_NEW', poll: p });
     const onPollUpdated = (p) => dispatch({ type: 'POLL_UPDATED', poll: p });
-    const onRoomUpdated = ({ status }) => dispatch({ type: 'ROOM_UPDATED', status });
+    const onRoomUpdated = (payload) => {
+      const wasClosed = prevStatusRef.current === 'closed';
+      prevStatusRef.current = payload.status;
+      dispatch({ type: 'ROOM_UPDATED', ...payload });
+      // Reopened after being closed → resync full state.
+      if (payload.status === 'open' && wasClosed) join();
+    };
+    const onSessionRenamed = ({ id, name }) => dispatch({ type: 'SESSION_RENAMED', id, name });
     const onPresence = ({ count }) => dispatch({ type: 'PRESENCE', count });
     const onAnalytics = (snapshot) => dispatch({ type: 'ANALYTICS', snapshot });
 
@@ -59,6 +57,7 @@ export function useRoom(code, hostToken) {
     socket.on('poll:new', onPollNew);
     socket.on('poll:updated', onPollUpdated);
     socket.on('room:updated', onRoomUpdated);
+    socket.on('session:renamed', onSessionRenamed);
     socket.on('presence:updated', onPresence);
     socket.on('analytics:updated', onAnalytics);
 
@@ -75,19 +74,19 @@ export function useRoom(code, hostToken) {
       socket.off('poll:new', onPollNew);
       socket.off('poll:updated', onPollUpdated);
       socket.off('room:updated', onRoomUpdated);
+      socket.off('session:renamed', onSessionRenamed);
       socket.off('presence:updated', onPresence);
       socket.off('analytics:updated', onAnalytics);
     };
   }, [code, join]);
 
-  // --- bound actions (return the ack promise so callers can toast on error) ---
+  // --- bound actions ---
   const askQuestion = useCallback((text) => emitAck('question:ask', { text }), []);
 
   const upvoteQuestion = useCallback((questionId) => {
-    dispatch({ type: 'OPTIMISTIC_UPVOTE', questionId }); // optimistic; server reconciles
+    dispatch({ type: 'OPTIMISTIC_UPVOTE', questionId });
     return emitAck('question:upvote', { questionId }).catch((err) => {
-      // Roll back the optimistic toggle on failure.
-      dispatch({ type: 'OPTIMISTIC_UPVOTE', questionId });
+      dispatch({ type: 'OPTIMISTIC_UPVOTE', questionId }); // roll back
       throw err;
     });
   }, []);
@@ -110,7 +109,8 @@ export function useRoom(code, hostToken) {
     (questionId, hidden) => emitAck('question:hide', { questionId, hidden }),
     []
   );
-  const closeRoom = useCallback(() => emitAck('room:close', {}), []);
+  const closeRoom = useCallback((sessionName) => emitAck('room:close', { sessionName }), []);
+  const openRoom = useCallback(() => emitAck('room:open', {}), []);
 
   return {
     state,
@@ -123,6 +123,7 @@ export function useRoom(code, hostToken) {
       answerQuestion,
       hideQuestion,
       closeRoom,
+      openRoom,
     },
   };
 }
