@@ -12,12 +12,16 @@ import { Landing } from './pages/Landing.jsx';
 import { AudienceRoom } from './pages/AudienceRoom.jsx';
 import { Login } from './pages/Login.jsx';
 import { Signup } from './pages/Signup.jsx';
-import { ComingSoon } from './pages/ComingSoon.jsx';
 import { SpeakerHub } from './pages/SpeakerHub.jsx';
 import { MentorHub } from './pages/MentorHub.jsx';
 import { ChapterPage } from './pages/ChapterPage.jsx';
 import { History } from './pages/History.jsx';
 import { SessionReport } from './pages/SessionReport.jsx';
+import { QuizHub } from './pages/QuizHub.jsx';
+import { PlayJoin } from './pages/PlayJoin.jsx';
+import { QuizBuilder } from './pages/QuizBuilder.jsx';
+import { QuizHost } from './pages/QuizHost.jsx';
+import { QuizPlayer } from './pages/QuizPlayer.jsx';
 import { ToastProvider } from './hooks/useToast.jsx';
 import { Toaster } from './components/shared/Toaster.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
@@ -111,13 +115,45 @@ function AppRoutes() {
             path="/quiz"
             element={
               <RequireAuth>
-                <ComingSoon title="Quiz hub" note="Build and host live quizzes." />
+                <QuizHub />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/quiz/new"
+            element={
+              <RequireAuth>
+                <QuizBuilder />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/quiz/:id/edit"
+            element={
+              <RequireAuth>
+                <QuizBuilder />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/play"
+            element={
+              <RequireAuth>
+                <PlayJoin />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/host/quiz/:code"
+            element={
+              <RequireAuth>
+                <QuizHost />
               </RequireAuth>
             }
           />
 
-          {/* Quiz player (public, built in Phase 6) */}
-          <Route path="/play/:code" element={<ComingSoon title="Quiz" note="The quiz player is coming soon." />} />
+          {/* Quiz player — public (anonymous players join with a nickname) */}
+          <Route path="/play/:code" element={<QuizPlayer />} />
 
           {/* Q&A / Mentor rooms */}
           <Route

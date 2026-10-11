@@ -7,6 +7,7 @@ import { registerRoomHandlers } from './roomHandlers.js';
 import { registerQuestionHandlers } from './questionHandlers.js';
 import { registerPollHandlers } from './pollHandlers.js';
 import { registerModerationHandlers } from './moderationHandlers.js';
+import { registerQuizHandlers } from './quizHandlers.js';
 import { emitPresence, setIo } from './broadcast.js';
 import { presenceCount } from './presence.js';
 
@@ -51,6 +52,7 @@ export function attachSockets(httpServer) {
     registerQuestionHandlers(io, socket);
     registerPollHandlers(io, socket);
     registerModerationHandlers(io, socket);
+    registerQuizHandlers(io, socket);
 
     socket.on('disconnect', async (reason) => {
       const code = socket.data.roomCode;

@@ -3,10 +3,10 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '../shared/Button.jsx';
 import { Icon } from '../shared/icons.jsx';
 
-/** Projector-friendly join panel: giant code, QR of the audience URL, copy-link. */
-export function JoinCodeCard({ code }) {
+/** Projector-friendly join panel: giant code, QR of the join URL, copy-link. */
+export function JoinCodeCard({ code, joinPath = '/r/' }) {
   const [copied, setCopied] = useState(false);
-  const audienceUrl = `${window.location.origin}/r/${code}`;
+  const audienceUrl = `${window.location.origin}${joinPath}${code}`;
 
   const copy = async () => {
     try {

@@ -6,6 +6,7 @@ import { authRouter } from './routes/auth.routes.js';
 import { roomsRouter } from './routes/rooms.routes.js';
 import { sessionsRouter } from './routes/sessions.routes.js';
 import { chaptersRouter } from './routes/chapters.routes.js';
+import { quizzesRouter } from './routes/quizzes.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 /** Build the Express app (no listening — index.js owns the HTTP server). */
@@ -27,6 +28,7 @@ export function createApp() {
   app.use('/api/rooms', roomsRouter);
   app.use('/api/sessions', sessionsRouter);
   app.use('/api/chapters', chaptersRouter);
+  app.use('/api/quizzes', quizzesRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

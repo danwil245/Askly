@@ -84,3 +84,26 @@ simplest consistent option and record it here.
   deletes it. No migration — v1 was anonymous and pre-accounts.
 - The v1 `hostToken`/`hostAuth` mechanism is removed; host status is derived purely from ownership
   (`user.id === room.ownerId`), checked server-side everywhere via the shared `assertOwned`.
+
+### Phase 6: Quiz mode
+
+- **In-memory game state per room code** (`quizEngine`) is the live source of truth for phase,
+  timing, scoring, and correctness; outcomes are persisted to Mongo as they happen (Player,
+  PlayerAnswer, and the Session's `finalLeaderboard`/`summary`). Correct answers are never sent to
+  players before `quiz:reveal`.
+- **Server-authoritative timing.** The client countdown is display-only; the server sends `endsAt`
+  + `serverNow` so clients correct clock skew, and rejects late answers with `TIME_UP`. Duplicate
+  answers are blocked by the in-memory set *and* the unique `(sessionId, playerId, questionId)`
+  index (`ALREADY_ANSWERED`).
+- **Flat scoring** (`QUIZ_POINTS_PER_CORRECT`, default 100); ties share a rank (1,2,2,4).
+- **Quiz snapshot at host time**: hosting copies the whole quiz onto the Session, so later edits or
+  deletes never alter a past game's history.
+- **Per-player socket rooms** (`q:<code>:<clientId>`) let the server deliver personal results and
+  ranks and survive reconnects; a player rejoins with the same `clientId` + nickname to restore
+  score and position.
+- **Restart safety:** on boot, any still-`active` quiz Session is marked `ended` + `interrupted`
+  and its room closed, since the in-memory game is gone (documented in README limitations).
+- **Nicknames are unauthenticated by design** — unique per game case-insensitively, rate-limited by
+  clientId + IP; they are not identities.
+- **Colorblind-safe option tiles**: each answer has a letter (A–D) and a distinct shape in addition
+  to color, so meaning never depends on color alone.
