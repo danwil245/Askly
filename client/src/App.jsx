@@ -8,13 +8,15 @@ import {
   useLocation,
 } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { Home } from './pages/Home.jsx';
+import { Landing } from './pages/Landing.jsx';
 import { AudienceRoom } from './pages/AudienceRoom.jsx';
 import { Login } from './pages/Login.jsx';
 import { Signup } from './pages/Signup.jsx';
+import { ComingSoon } from './pages/ComingSoon.jsx';
 import { ToastProvider } from './hooks/useToast.jsx';
 import { Toaster } from './components/shared/Toaster.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
+import { RequireAuth } from './lib/guards.jsx';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -55,11 +57,57 @@ function AppRoutes() {
       <UnauthorizedBridge />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/host/:code" element={<PresenterDashboard />} />
-          <Route path="/r/:code" element={<AudienceRoom />} />
+
+          {/* Hubs (built out in later phases) */}
+          <Route
+            path="/speaker"
+            element={
+              <RequireAuth>
+                <ComingSoon title="Speaker hub" note="Create and manage your Q&A rooms here." />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/mentor"
+            element={
+              <RequireAuth>
+                <ComingSoon title="Mentor hub" note="Chapters and reusable course rooms." />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/quiz"
+            element={
+              <RequireAuth>
+                <ComingSoon title="Quiz hub" note="Build and host live quizzes." />
+              </RequireAuth>
+            }
+          />
+
+          {/* Quiz player (public, built in Phase 6) */}
+          <Route path="/play/:code" element={<ComingSoon title="Quiz" note="The quiz player is coming soon." />} />
+
+          {/* Q&A / Mentor rooms */}
+          <Route
+            path="/host/:code"
+            element={
+              <RequireAuth>
+                <PresenterDashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/r/:code"
+            element={
+              <RequireAuth>
+                <AudienceRoom />
+              </RequireAuth>
+            }
+          />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
@@ -79,7 +127,6 @@ export default function App() {
     </ToastProvider>
   );
 
-  // Only mount the Google provider when configured (empty clientId throws).
   return GOOGLE_CLIENT_ID ? (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>{tree}</GoogleOAuthProvider>
   ) : (

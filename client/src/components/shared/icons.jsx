@@ -108,4 +108,33 @@ export const Icon = {
       <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
     </svg>
   ),
+  Mic: (p) => (
+    <svg {...base} {...p}>
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 10a7 7 0 0 0 14 0M12 17v5" />
+    </svg>
+  ),
+  Cap: (p) => (
+    <svg {...base} {...p}>
+      <path d="M22 9 12 5 2 9l10 4 10-4Z" />
+      <path d="M6 10.5V16c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5.5" />
+    </svg>
+  ),
+  Trophy: (p) => (
+    <svg {...base} {...p}>
+      <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z" />
+      <path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3" />
+    </svg>
+  ),
+  ArrowRight: (p) => (
+    <svg {...base} {...p}>
+      <path d="M5 12h14m-6-6 6 6-6 6" />
+    </svg>
+  ),
+  Clock: (p) => (
+    <svg {...base} {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  ),
 };
