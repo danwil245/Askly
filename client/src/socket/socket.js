@@ -5,16 +5,33 @@ import { getClientId } from '../lib/clientId.js';
 const URL = import.meta.env.VITE_API_URL || undefined;
 
 let socket;
+let currentToken = null;
 
 export function getSocket() {
   if (!socket) {
     socket = io(URL, {
       autoConnect: false,
       transports: ['websocket', 'polling'],
-      auth: { clientId: getClientId() },
+      auth: { clientId: getClientId(), token: currentToken || undefined },
     });
   }
   return socket;
+}
+
+/**
+ * Update the auth token used on the handshake. If the token actually changed and the
+ * socket is connected, reconnect so the server re-reads identity (after login/logout).
+ */
+export function setSocketAuth(token) {
+  const next = token || null;
+  if (next === currentToken) return;
+  currentToken = next;
+  if (socket) {
+    socket.auth = { clientId: getClientId(), token: currentToken || undefined };
+    if (socket.connected) {
+      socket.disconnect().connect();
+    }
+  }
 }
 
 /**

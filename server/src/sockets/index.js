@@ -1,6 +1,8 @@
 import { Server } from 'socket.io';
 import { env } from '../config/env.js';
 import { log } from '../utils/logger.js';
+import { verifyToken } from '../utils/jwt.js';
+import { getUserById } from '../services/userService.js';
 import { registerRoomHandlers } from './roomHandlers.js';
 import { registerQuestionHandlers } from './questionHandlers.js';
 import { registerPollHandlers } from './pollHandlers.js';
@@ -20,11 +22,24 @@ export function attachSockets(httpServer) {
     cors: { origin: env.clientOrigin, methods: ['GET', 'POST'] },
   });
 
-  // Handshake auth: carry the anonymous clientId from `auth` (not a security boundary).
-  io.use((socket, next) => {
+  // Handshake auth: verify the JWT if present (sets socket.data.user) and carry the
+  // anonymous clientId (used by quiz players, who connect without a token).
+  io.use(async (socket, next) => {
     const clientId = socket.handshake.auth?.clientId;
     socket.data.clientId = typeof clientId === 'string' ? clientId : undefined;
     socket.data.ip = resolveIp(socket);
+    socket.data.user = null;
+
+    const token = socket.handshake.auth?.token;
+    const userId = verifyToken(token);
+    if (userId) {
+      try {
+        const user = await getUserById(userId);
+        socket.data.user = { id: user.id ? user.id : String(user._id), name: user.name };
+      } catch {
+        /* unknown/deleted user — treat as anonymous */
+      }
+    }
     next();
   });
 

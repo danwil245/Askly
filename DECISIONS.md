@@ -40,3 +40,25 @@ simplest consistent option and record it here.
   ack). React components hold no business logic — that lives in `useRoom` + `roomReducer`.
 
 <!-- Append new decisions below as they are made. -->
+
+## v2 — Platform with accounts
+
+### Phase 1: Accounts
+
+- **JWT in localStorage (not cookies).** Client (Vercel) and server (Render) are on different
+  registrable domains, so cookies would be third-party and blocked by some browsers. We store the
+  JWT in `localStorage` and send `Authorization: Bearer <token>`. Trade-off: this avoids CSRF but is
+  exposed to XSS — mitigated by React escaping all output by default and never using
+  `dangerouslySetInnerHTML`. Documented per spec section 6/12.
+- **Google link removes the password.** When a Google sign-in matches an existing *password*
+  account by email, we set `passwordHash = undefined` while linking `googleId`. This prevents an
+  email squatter who pre-registered someone else's address from retaining password access once the
+  real owner proves control of the email via Google. (spec section 6)
+- **Generic login errors.** Login failures always return the same `INVALID_CREDENTIALS` message and
+  run a dummy bcrypt compare when the user is missing, so neither the response nor timing reveals
+  whether an email is registered.
+- **Google verification isolated** in `utils/googleVerify.js` so tests mock it without network or
+  credentials. The endpoint returns `503` when `GOOGLE_CLIENT_ID` is unset, and the client hides the
+  button unless both `VITE_GOOGLE_CLIENT_ID` and the server's `/health.googleEnabled` are true.
+- **Socket identity:** the handshake now verifies the JWT (`socket.data.user`) while still carrying
+  `clientId` (needed by future quiz players who connect without a token).

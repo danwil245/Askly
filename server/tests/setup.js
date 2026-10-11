@@ -5,6 +5,8 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 // Spin up an in-memory MongoDB once for the whole test run. Set NODE_ENV=test so the
 // app skips the fail-fast env check and the REST rate limiter.
 process.env.NODE_ENV = 'test';
+// Deterministic secret so JWT signing/verification works under test.
+process.env.JWT_SECRET = 'test-secret-key-that-is-definitely-32-chars-long';
 
 let mongod;
 

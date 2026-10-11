@@ -1,7 +1,8 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
-import { env } from './config/env.js';
+import { env, googleEnabled } from './config/env.js';
+import { authRouter } from './routes/auth.routes.js';
 import { roomsRouter } from './routes/rooms.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
@@ -17,9 +18,10 @@ export function createApp() {
   app.set('trust proxy', 1);
 
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', uptime: process.uptime() });
+    res.json({ status: 'ok', uptime: process.uptime(), googleEnabled: googleEnabled() });
   });
 
+  app.use('/api/auth', authRouter);
   app.use('/api/rooms', roomsRouter);
 
   app.use(notFoundHandler);
