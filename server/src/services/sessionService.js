@@ -78,5 +78,24 @@ export async function getSessionReport(session) {
         })),
       };
     }),
+    quizzes: (session.quizzes || []).map((qz) => ({
+      quizId: qz.quizId,
+      code: qz.code,
+      title: qz.title,
+      description: qz.description,
+      status: qz.status,
+      questionCount: qz.questions?.length || qz.questionCount || 0,
+      questions: (qz.questions || []).map((q) => ({
+        id: q.id,
+        text: q.text,
+        options: q.options || [],
+        correctOptionId: q.correctOptionId,
+        timeLimitSec: q.timeLimitSec,
+      })),
+      finalLeaderboard: qz.finalLeaderboard || [],
+      summary: qz.summary || null,
+      startedAt: qz.startedAt,
+      endedAt: qz.endedAt || null,
+    })),
   };
 }

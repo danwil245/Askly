@@ -8,6 +8,7 @@ import {
   hostQuiz,
   listGames,
 } from '../services/quizService.js';
+import { Room } from '../models/Room.js';
 
 const optionSchema = z.object({
   id: z.string().trim().min(1).optional(),
@@ -89,7 +90,21 @@ export async function deleteQuizHandler(req, res, next) {
 export async function hostQuizHandler(req, res, next) {
   try {
     const quiz = await getQuizOwnedOrThrow(req.params.id, req.userId);
-    const { code } = await hostQuiz(quiz, req.userId);
+    let parentOpts = {};
+    if (req.body?.parentRoomCode) {
+      const parentRoom = await Room.findOne({
+        code: String(req.body.parentRoomCode).toUpperCase(),
+        ownerId: req.userId,
+      });
+      if (parentRoom) {
+        parentOpts = {
+          parentRoomId: parentRoom._id,
+          parentSessionId: parentRoom.currentSessionId,
+          parentRoomCode: parentRoom.code,
+        };
+      }
+    }
+    const { code } = await hostQuiz(quiz, req.userId, parentOpts);
     res.status(201).json({ code });
   } catch (err) {
     next(err);

@@ -2,6 +2,7 @@ import { Room } from '../models/Room.js';
 import { Session } from '../models/Session.js';
 import { Player } from '../models/Player.js';
 import { PlayerAnswer } from '../models/PlayerAnswer.js';
+import { Question } from '../models/Question.js';
 import { pointsForCorrect, rankPlayers } from './quizScoring.js';
 import { publicQuizQuestion } from './quizService.js';
 import { env } from '../config/env.js';
@@ -350,6 +351,50 @@ async function persistOutcome(game, { interrupted = false } = {}) {
     }
   );
   await Room.updateOne({ _id: game.roomId }, { $set: { status: 'closed', currentSessionId: null } });
+
+  try {
+    const quizSession = await Session.findById(game.sessionId).lean();
+    if (quizSession?.parentSessionId) {
+      await Session.updateOne(
+        { _id: quizSession.parentSessionId, 'quizzes.code': game.code },
+        {
+          $set: {
+            'quizzes.$.status': 'ended',
+            'quizzes.$.endedAt': new Date(),
+            'quizzes.$.finalLeaderboard': board,
+            'quizzes.$.summary': {
+              players: playersArray(game).length,
+              questions: game.quiz.questions.length,
+              topScore,
+            },
+          },
+        }
+      );
+
+      if (quizSession.parentRoomId) {
+        const parentRoom = await Room.findById(quizSession.parentRoomId);
+        if (parentRoom) {
+          await Room.updateOne({ _id: parentRoom._id }, { $set: { activeQuizCode: null } });
+          for (const q of game.quiz.questions) {
+            const correctOpt = (q.options || []).find((o) => o.id === q.correctOptionId);
+            await Question.create({
+              roomId: parentRoom._id,
+              roomCode: parentRoom.code,
+              sessionId: quizSession.parentSessionId,
+              authorUserId: game.ownerId,
+              authorName: `Quiz: ${game.quiz.title}`,
+              text: `[Quiz Question] ${q.text} (Correct: ${correctOpt?.text || ''})`,
+              answered: true,
+              hidden: false,
+            });
+          }
+        }
+      }
+    }
+  } catch (err) {
+    log.error('quiz.persistOutcome.parentSync', { error: err.message, code: game.code });
+  }
+
   return board;
 }
 

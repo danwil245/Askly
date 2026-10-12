@@ -183,4 +183,63 @@ describe('quiz engine', () => {
     expect(res.ok).toBe(true);
     await kickedEvent; // player is notified
   });
+
+  it('hosts a quiz linked to a course room and saves quiz questions & results to the room session', async () => {
+    const { token } = await registerUser(app);
+    // Create course/qa room
+    const roomRes = await request(app)
+      .post('/api/rooms')
+      .set(auth(token))
+      .send({ type: 'qa', title: 'Data Structures' });
+    expect(roomRes.status).toBe(201);
+    const parentCode = roomRes.body.room.code;
+    const parentSessionId = roomRes.body.currentSession.id;
+
+    // Create quiz
+    const quizRes = await request(app).post('/api/quizzes').set(auth(token)).send(QUIZ);
+    const quizId = quizRes.body.quiz.id;
+
+    // Host quiz linked to room
+    const hostRes = await request(app)
+      .post(`/api/quizzes/${quizId}/host`)
+      .set(auth(token))
+      .send({ parentRoomCode: parentCode });
+    expect(hostRes.status).toBe(201);
+    const quizCode = hostRes.body.code;
+
+    // Connect host & player
+    const host = await hostSocket(token, quizCode);
+    const p1 = await playerSocket(quizCode, 'Student1', 'c-st1');
+    expect(p1.res.ok).toBe(true);
+
+    // Play 1st question
+    const q1Promise = waitFor(p1.s, 'quiz:question');
+    await emit(host, 'quiz:start', {});
+    const q1 = await q1Promise;
+    await emit(p1.s, 'quiz:answer', { questionId: q1.questionId, optionId: 'a' });
+
+    // End game
+    const finishedPromise = waitFor(host, 'quiz:finished');
+    await emit(host, 'quiz:end', {});
+    await finishedPromise;
+
+    // Fetch parent session report
+    const reportRes = await request(app)
+      .get(`/api/sessions/${parentSessionId}`)
+      .set(auth(token));
+    expect(reportRes.status).toBe(200);
+    const report = reportRes.body;
+
+    // Quizzes in session
+    expect(report.quizzes).toBeDefined();
+    expect(report.quizzes.length).toBe(1);
+    expect(report.quizzes[0].title).toBe('Capitals');
+    expect(report.quizzes[0].questions.length).toBe(2);
+    expect(report.quizzes[0].status).toBe('ended');
+
+    // Questions saved to the room
+    const quizQuestions = report.questions.filter((q) => q.authorName?.includes('Quiz'));
+    expect(quizQuestions.length).toBe(2);
+    expect(quizQuestions[0].text).toContain('[Quiz Question]');
+  });
 });

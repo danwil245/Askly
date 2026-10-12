@@ -13,6 +13,7 @@ export function serializeRoom(room, { chapter } = {}) {
     type: room.type,
     status: room.status,
     currentSessionId: room.currentSessionId ? String(room.currentSessionId) : null,
+    activeQuizCode: room.activeQuizCode || null,
     settings: { showAuthorNames: room.settings?.showAuthorNames || 'host' },
     ...(chapter ? { chapter: serializeChapter(chapter) } : {}),
   };

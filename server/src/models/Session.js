@@ -16,6 +16,11 @@ const sessionSchema = new mongoose.Schema(
     quizSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
     finalLeaderboard: { type: [mongoose.Schema.Types.Mixed], default: undefined },
     interrupted: { type: Boolean, default: false },
+    // Linked parent room / session (when quiz is hosted from a mentor room)
+    parentRoomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Room', default: null },
+    parentSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', default: null },
+    // Quizzes played in this session (for qa / mentor rooms)
+    quizzes: { type: [mongoose.Schema.Types.Mixed], default: [] },
   },
   { timestamps: true }
 );

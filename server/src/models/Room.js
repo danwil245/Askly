@@ -12,6 +12,10 @@ const roomSchema = new mongoose.Schema(
     quizId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz', default: null },
     status: { type: String, enum: ['open', 'closed'], default: 'open' },
     currentSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', default: null },
+    // For quiz rooms launched from a mentor/qa room:
+    parentRoomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Room', default: null },
+    // If a quiz is currently running in this room:
+    activeQuizCode: { type: String, default: null },
     settings: {
       // 'host': audience sees "Anonymous", host sees the asker's name. 'all': everyone sees names.
       showAuthorNames: { type: String, enum: ['host', 'all'], default: 'host' },

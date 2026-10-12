@@ -75,39 +75,149 @@ function QaReport({ report }) {
           </div>
         </section>
       )}
+
+      {report.quizzes && report.quizzes.length > 0 && (
+        <section>
+          <h2 className="mb-3 font-heading text-sm font-semibold uppercase tracking-wide text-muted">
+            Quizzes Played ({report.quizzes.length})
+          </h2>
+          <div className="flex flex-col gap-6">
+            {report.quizzes.map((qz, idx) => (
+              <div key={idx} className="card p-5">
+                <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+                  <div>
+                    <h3 className="font-heading font-semibold text-fg">{qz.title}</h3>
+                    <p className="text-xs text-muted">Game code: {qz.code}</p>
+                  </div>
+                  <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-medium text-primary">
+                    {qz.questionCount || qz.questions?.length} questions
+                  </span>
+                </div>
+
+                {qz.questions && qz.questions.length > 0 && (
+                  <div className="mb-5">
+                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                      Questions Asked
+                    </h4>
+                    <div className="flex flex-col gap-2">
+                      {qz.questions.map((q, qIdx) => (
+                        <div key={qIdx} className="rounded-xl border border-border bg-surface-2 p-3 text-sm">
+                          <p className="font-medium text-fg">
+                            {qIdx + 1}. {q.text}
+                          </p>
+                          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                            {(q.options || []).map((opt) => (
+                              <div
+                                key={opt.id}
+                                className={`rounded-lg px-2.5 py-1 ${
+                                  opt.id === q.correctOptionId
+                                    ? 'bg-success/20 font-semibold text-success'
+                                    : 'bg-surface text-muted'
+                                }`}
+                              >
+                                {opt.text} {opt.id === q.correctOptionId && '✓ (Correct)'}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {qz.finalLeaderboard && qz.finalLeaderboard.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                      Leaderboard
+                    </h4>
+                    <ol className="flex flex-col gap-1.5">
+                      {qz.finalLeaderboard.slice(0, 5).map((p, pIdx) => (
+                        <li key={pIdx} className="flex items-center justify-between rounded-lg bg-surface-2 px-3 py-1.5 text-sm">
+                          <span className="flex items-center gap-2">
+                            <span className="font-heading font-bold text-primary">#{p.rank}</span>
+                            <span className="font-medium">{p.nickname}</span>
+                          </span>
+                          <span className="text-xs text-muted">
+                            {p.correctCount} correct · <strong className="text-fg">{p.score} pts</strong>
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
 function QuizReport({ report }) {
   const board = report.quiz?.finalLeaderboard || [];
+  const snapshotQuestions = report.quiz?.snapshot?.questions || [];
+
   return (
-    <section>
-      <h2 className="mb-3 font-heading text-sm font-semibold uppercase tracking-wide text-muted">
-        Final leaderboard
-      </h2>
-      {report.quiz?.interrupted && (
-        <p className="mb-3 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
-          This game was interrupted before it finished.
-        </p>
+    <div className="flex flex-col gap-6">
+      <section>
+        <h2 className="mb-3 font-heading text-sm font-semibold uppercase tracking-wide text-muted">
+          Final leaderboard
+        </h2>
+        {report.quiz?.interrupted && (
+          <p className="mb-3 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
+            This game was interrupted before it finished.
+          </p>
+        )}
+        {board.length === 0 ? (
+          <p className="text-sm text-muted">No results recorded.</p>
+        ) : (
+          <ol className="flex flex-col gap-2">
+            {board.map((p) => (
+              <li key={`${p.rank}-${p.nickname}`} className="card flex items-center gap-3 p-3">
+                <span className="tabular w-6 text-center font-heading text-lg font-bold text-primary">
+                  {p.rank}
+                </span>
+                <span className="flex-1 text-sm font-medium">{p.nickname}</span>
+                <span className="text-xs text-muted">{p.correctCount} correct</span>
+                <span className="tabular font-heading font-bold">{p.score}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      {snapshotQuestions.length > 0 && (
+        <section>
+          <h2 className="mb-3 font-heading text-sm font-semibold uppercase tracking-wide text-muted">
+            Questions Asked ({snapshotQuestions.length})
+          </h2>
+          <div className="flex flex-col gap-2">
+            {snapshotQuestions.map((q, qIdx) => (
+              <div key={qIdx} className="card p-3.5 text-sm">
+                <p className="font-medium text-fg">
+                  {qIdx + 1}. {q.text}
+                </p>
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                  {(q.options || []).map((opt) => (
+                    <div
+                      key={opt.id}
+                      className={`rounded-lg px-2.5 py-1 ${
+                        opt.id === q.correctOptionId
+                          ? 'bg-success/20 font-semibold text-success'
+                          : 'bg-surface-2 text-muted'
+                      }`}
+                    >
+                      {opt.text} {opt.id === q.correctOptionId && '✓ (Correct)'}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
-      {board.length === 0 ? (
-        <p className="text-sm text-muted">No results recorded.</p>
-      ) : (
-        <ol className="flex flex-col gap-2">
-          {board.map((p) => (
-            <li key={`${p.rank}-${p.nickname}`} className="card flex items-center gap-3 p-3">
-              <span className="tabular w-6 text-center font-heading text-lg font-bold text-primary">
-                {p.rank}
-              </span>
-              <span className="flex-1 text-sm font-medium">{p.nickname}</span>
-              <span className="text-xs text-muted">{p.correctCount} correct</span>
-              <span className="tabular font-heading font-bold">{p.score}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </section>
+    </div>
   );
 }
 

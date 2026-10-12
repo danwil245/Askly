@@ -74,7 +74,7 @@ export async function deleteQuiz(quiz) {
  * Host a quiz: create a fresh quiz Room (new code every game) + a Session that stores a
  * full snapshot of the quiz (so later edits never alter history). Returns { code }.
  */
-export async function hostQuiz(quiz, ownerId) {
+export async function hostQuiz(quiz, ownerId, { parentRoomId, parentSessionId, parentRoomCode } = {}) {
   const code = await generateUniqueCode(async (c) => !!(await Room.exists({ code: c })));
   const room = await Room.create({
     code,
@@ -82,6 +82,7 @@ export async function hostQuiz(quiz, ownerId) {
     type: 'quiz',
     title: quiz.title,
     quizId: quiz._id,
+    parentRoomId: parentRoomId || null,
     status: 'open',
   });
   const session = await Session.create({
@@ -96,9 +97,36 @@ export async function hostQuiz(quiz, ownerId) {
     })}`,
     status: 'active',
     quizSnapshot: quiz.toObject(),
+    parentRoomId: parentRoomId || null,
+    parentSessionId: parentSessionId || null,
   });
   room.currentSessionId = session._id;
   await room.save();
+
+  if (parentSessionId) {
+    await Session.updateOne(
+      { _id: parentSessionId },
+      {
+        $push: {
+          quizzes: {
+            quizId: String(quiz._id),
+            code,
+            title: quiz.title,
+            description: quiz.description,
+            questions: quiz.questions,
+            questionCount: quiz.questions.length,
+            startedAt: new Date(),
+            status: 'active',
+          },
+        },
+      }
+    );
+  }
+
+  if (parentRoomCode) {
+    await Room.updateOne({ code: parentRoomCode }, { $set: { activeQuizCode: code } });
+  }
+
   return { code, roomId: room._id, sessionId: session._id };
 }
 

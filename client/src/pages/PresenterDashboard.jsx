@@ -15,11 +15,13 @@ import { Logo } from '../components/shared/Logo.jsx';
 import { Button } from '../components/shared/Button.jsx';
 import { EmptyState } from '../components/shared/EmptyState.jsx';
 import { Icon } from '../components/shared/icons.jsx';
+import { RoomQuizPanel } from '../components/presenter/RoomQuizPanel.jsx';
 import { RoomNotFound } from './RoomNotFound.jsx';
 
 const TABS = [
   { id: 'questions', label: 'Questions', icon: Icon.Message },
   { id: 'polls', label: 'Polls', icon: Icon.Poll },
+  { id: 'quiz', label: 'Quiz', icon: Icon.Trophy },
   { id: 'analytics', label: 'Analytics', icon: Icon.Chart },
 ];
 
@@ -196,6 +198,13 @@ export function PresenterDashboard() {
                 )}
               </div>
             </div>
+          )}
+
+          {tab === 'quiz' && (
+            <RoomQuizPanel
+              roomCode={code}
+              closed={closed}
+            />
           )}
 
           {tab === 'analytics' && <AnalyticsPanel analytics={liveAnalytics} />}

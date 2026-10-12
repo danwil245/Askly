@@ -95,6 +95,6 @@ export const api = {
   getQuiz: (id) => request(`/api/quizzes/${enc(id)}`),
   updateQuiz: (id, payload) => request(`/api/quizzes/${enc(id)}`, { method: 'PUT', body: payload }),
   deleteQuiz: (id) => request(`/api/quizzes/${enc(id)}`, { method: 'DELETE' }),
-  hostQuiz: (id) => request(`/api/quizzes/${enc(id)}/host`, { method: 'POST' }),
+  hostQuiz: (id, payload) => request(`/api/quizzes/${enc(id)}/host`, { method: 'POST', body: payload }),
   quizGames: () => request('/api/quizzes/games'),
 };

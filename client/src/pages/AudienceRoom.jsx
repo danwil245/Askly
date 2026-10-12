@@ -90,6 +90,30 @@ export function AudienceRoom() {
           </div>
         )}
 
+        {/* Active Quiz Notice */}
+        {state.room?.activeQuizCode && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 p-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-fg">
+                <Icon.Trophy width={18} height={18} />
+              </span>
+              <div>
+                <p className="font-heading text-sm font-semibold text-fg">Live Quiz is Starting!</p>
+                <p className="text-xs text-muted">Game code: {state.room.activeQuizCode}</p>
+              </div>
+            </div>
+            <a
+              href={`/play/${state.room.activeQuizCode}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-fg hover:bg-primary-hover shadow-sm"
+            >
+              Join Quiz
+              <Icon.ArrowRight width={14} height={14} />
+            </a>
+          </div>
+        )}
+
         {/* Active polls */}
         {openPolls.length > 0 && (
           <section className="mb-6 flex flex-col gap-3" aria-label="Active polls">
