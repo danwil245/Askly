@@ -60,6 +60,7 @@ export function QuizOptionTile({ index, text, onClick, disabled, status = 'idle'
       onClick={onClick}
       disabled={disabled}
       aria-label={`Option ${LETTERS[index]}: ${text}`}
+      aria-keyshortcuts={`${LETTERS[index]}, ${index + 1}`}
       className={`relative flex min-h-[56px] w-full items-center gap-3 overflow-hidden rounded-2xl px-4 py-3 text-left text-white transition-transform active:scale-[0.98] disabled:cursor-default ${s.bg} ${emphasis} ${dim}`}
     >
       {percent != null && (

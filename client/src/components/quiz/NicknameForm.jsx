@@ -35,7 +35,10 @@ export function NicknameForm({ onJoin, roomTitle }) {
         <input
           id="nickname"
           value={nickname}
-          onChange={(e) => setNickname(e.target.value.slice(0, 20))}
+          onChange={(e) => {
+            setNickname(e.target.value.slice(0, 20));
+            if (error) setError('');
+          }}
           placeholder="e.g. QuizWhiz"
           autoFocus
           className="rounded-xl border border-border bg-surface-2 px-3 py-3 text-center text-lg font-semibold text-fg placeholder:font-normal placeholder:text-muted focus:bg-surface"

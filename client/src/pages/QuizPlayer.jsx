@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api/http.js';
 import { useQuiz } from '../hooks/useQuiz.js';
@@ -74,16 +74,45 @@ export function QuizPlayer() {
   const q = state.question;
   const answered = answeredQ === q?.questionId;
 
-  const submit = async (optionId) => {
-    setSelected(optionId);
-    setAnsweredQ(q.questionId);
-    try {
-      await answer(optionId);
-    } catch {
-      setSelected(null);
-      setAnsweredQ(null);
-    }
-  };
+  const submit = useCallback(
+    async (optionId) => {
+      if (!q) return;
+      setSelected(optionId);
+      setAnsweredQ(q.questionId);
+      try {
+        await answer(optionId);
+      } catch {
+        setSelected(null);
+        setAnsweredQ(null);
+      }
+    },
+    [q, answer]
+  );
+
+  // Allow keyboard shortcuts (1-4 and A-D) to select an answer option during the question phase.
+  useEffect(() => {
+    if (state.phase !== 'question' || !q || answered) return;
+
+    const onKeyDown = (e) => {
+      if (e.target.matches?.('input, textarea, select') || e.ctrlKey || e.altKey || e.metaKey) {
+        return;
+      }
+      const key = e.key.toUpperCase();
+      let optIdx = -1;
+      if (['1', '2', '3', '4'].includes(key)) {
+        optIdx = Number(key) - 1;
+      } else if (['A', 'B', 'C', 'D'].includes(key)) {
+        optIdx = key.charCodeAt(0) - 65;
+      }
+      if (optIdx >= 0 && optIdx < q.options.length) {
+        e.preventDefault();
+        submit(q.options[optIdx].id);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [state.phase, q, answered, submit]);
 
   return (
     <Shell>

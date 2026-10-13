@@ -71,7 +71,14 @@ export function QuizBuilder() {
     setQuestions((qs) => (qs.length > 1 ? qs.filter((_, idx) => idx !== i) : qs));
   const duplicateQuestion = (i) =>
     setQuestions((qs) => {
-      const copy = { ...qs[i], id: crypto.randomUUID() };
+      const q = qs[i];
+      const idMap = new Map(q.options.map((o) => [o.id, crypto.randomUUID()]));
+      const copy = {
+        ...q,
+        id: crypto.randomUUID(),
+        options: q.options.map((o) => ({ ...o, id: idMap.get(o.id) })),
+        correctOptionId: idMap.get(q.correctOptionId) || q.options[0]?.id,
+      };
       return [...qs.slice(0, i + 1), copy, ...qs.slice(i + 1)];
     });
   const moveQuestion = (from, to) =>
