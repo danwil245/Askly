@@ -9,7 +9,7 @@ export async function presenceCount(io, code) {
 }
 
 /**
- * Person 3 — Anti-Spamming Security: socketsFromIpInRoom
+ * Anti-Spamming Security: socketsFromIpInRoom
  * IP-based connection tracking for flood protection and campus Wi-Fi connection caps.
  * Count sockets from a given IP currently in a room.
  */

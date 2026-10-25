@@ -22,7 +22,7 @@ export function registerRoomHandlers(io, socket) {
 
       const isHost = String(room.ownerId) === String(user.id);
 
-      // Person 3 — Anti-Spamming Security: Enforcement of maxSocketsPerIpPerRoom connection flood limit for campus Wi-Fi networks.
+      // Anti-Spamming Security: Enforcement of maxSocketsPerIpPerRoom connection flood limit for campus Wi-Fi networks.
       const alreadyInRoom = socket.rooms.has(code);
       if (!isHost && !alreadyInRoom) {
         const fromIp = await socketsFromIpInRoom(io, code, socket.data.ip);

@@ -1,6 +1,6 @@
 /**
  * Question Service
- * Includes Person 3 Anti-Spamming duplicate submission guards (DUPLICATE_QUESTION_WINDOW_MS).
+ * Includes anti-spam duplicate submission guards (DUPLICATE_QUESTION_WINDOW_MS).
  */
 import { Question } from '../models/Question.js';
 import { getRoomByCodeOrThrow, assertRoomOpen } from './roomService.js';
@@ -13,7 +13,7 @@ export async function createQuestion({ roomCode, text, authorUserId, authorName 
   const room = await getRoomByCodeOrThrow(roomCode);
   assertRoomOpen(room);
 
-  // Person 3 — Anti-Spamming Security: Duplicate question guard rejecting identical submissions within the cooldown window (DUPLICATE_QUESTION_WINDOW_MS).
+  // Anti-spam duplicate question guard rejecting identical submissions within the cooldown window (DUPLICATE_QUESTION_WINDOW_MS).
   const since = new Date(Date.now() - env.limits.duplicateQuestionWindowMs);
   const dup = await Question.findOne({
     roomId: room._id,

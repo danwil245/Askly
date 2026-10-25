@@ -1,5 +1,5 @@
 /**
- * Person 3 — Anti-Spamming Security: Rate Limiting & Anti-Spam Middleware
+ * Anti-Spamming Security: Rate Limiting & Anti-Spam Middleware
  * Action-specific socket buckets (questions, upvotes, poll votes, quiz answers),
  * REST limiters, and per-email failed-login throttling.
  */

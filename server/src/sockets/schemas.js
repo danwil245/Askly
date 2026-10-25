@@ -1,5 +1,5 @@
 /**
- * Person 3 — Anti-Spamming Security: Zod Payload Schemas
+ * Anti-Spamming Security: Zod Payload Schemas
  * Payload schemas enforcing length constraints, whitespace trimming, and control-character stripping.
  */
 import { z } from 'zod';

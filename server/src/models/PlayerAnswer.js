@@ -1,5 +1,5 @@
 /**
- * Person 3 — Anti-Spamming Security: PlayerAnswer Model
+ * Anti-Spamming Security: PlayerAnswer Model
  * Compound unique index { sessionId: 1, playerId: 1, questionId: 1 } preventing double submissions in quizzes.
  */
 import mongoose from 'mongoose';
@@ -16,7 +16,7 @@ const playerAnswerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Person 3 anti-spam: One answer per player per question — the DB backstop against double-answering.
+// Anti-spam guarantee: One answer per player per question — the DB backstop against double-answering.
 playerAnswerSchema.index({ sessionId: 1, playerId: 1, questionId: 1 }, { unique: true });
 
 export const PlayerAnswer =

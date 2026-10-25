@@ -1,5 +1,5 @@
 /**
- * Person 3 — Anti-Spamming Security: Vote Model
+ * Anti-Spamming Security: Vote Model
  * Compound unique index { pollId: 1, userId: 1 } preventing duplicate voting at the database layer.
  */
 import mongoose from 'mongoose';
@@ -15,7 +15,7 @@ const voteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Person 3 anti-spam: The hard guarantee against vote-spam: one vote per (poll, user). Duplicate inserts
+// Anti-spam guarantee: The hard guarantee against vote-spam: one vote per (poll, user). Duplicate inserts
 // raise Mongo error 11000, which pollService maps to ALREADY_VOTED.
 voteSchema.index({ pollId: 1, userId: 1 }, { unique: true });
 

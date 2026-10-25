@@ -1,6 +1,6 @@
 /**
  * Question Socket Handlers
- * Integrates Person 3 anti-spam rate limiting for question:ask and question:upvote.
+ * Integrates anti-spam rate limiting for question:ask and question:upvote.
  */
 import { withAck } from '../utils/ack.js';
 import { questionAskSchema, questionUpvoteSchema } from './schemas.js';
@@ -17,7 +17,7 @@ export function registerQuestionHandlers(io, socket) {
     'question:ask',
     withAck(async (payload) => {
       const code = requireJoined(socket);
-      // Person 3 — Anti-Spamming Security: Socket rate-limit enforcement for question:ask.
+      // Anti-Spamming Security: Socket rate-limit enforcement for question:ask.
       enforceSocketLimit('question', { id: socket.data.userId, ip: socket.data.ip });
       const { text } = questionAskSchema.parse(payload || {});
 
@@ -39,7 +39,7 @@ export function registerQuestionHandlers(io, socket) {
     'question:upvote',
     withAck(async (payload) => {
       const code = requireJoined(socket);
-      // Person 3 — Anti-Spamming Security: Socket rate-limit enforcement for question:upvote.
+      // Anti-Spamming Security: Socket rate-limit enforcement for question:upvote.
       enforceSocketLimit('upvote', { id: socket.data.userId, ip: socket.data.ip });
       const { questionId } = questionUpvoteSchema.parse(payload || {});
 
