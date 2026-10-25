@@ -1,4 +1,5 @@
 import { Icon } from '../shared/icons.jsx';
+import { PollCountdown } from '../shared/PollCountdown.jsx';
 
 /**
  * Poll card for the audience. Before voting: large tap targets. After voting (or when
@@ -23,6 +24,16 @@ export function PollVoteCard({ poll, myOptionId, onVote, disabled }) {
           </span>
         )}
       </div>
+
+      {!closed && poll.closesAt && (
+        <p
+          className="-mt-2 mb-3 flex items-center gap-1 text-xs font-medium text-warning"
+          aria-live="polite"
+        >
+          <Icon.Clock width={13} height={13} />
+          <PollCountdown closesAt={poll.closesAt} />
+        </p>
+      )}
 
       <div className="flex flex-col gap-2">
         {poll.options.map((opt) => {

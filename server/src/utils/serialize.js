@@ -75,6 +75,7 @@ export function serializePoll(poll) {
     sessionId: String(poll.sessionId),
     question: poll.question,
     status: poll.status,
+    closesAt: poll.closesAt || null,
     options: (poll.options || []).map((o) => ({ id: o.id, text: o.text, votes: o.votes || 0 })),
     createdAt: poll.createdAt,
     updatedAt: poll.updatedAt,

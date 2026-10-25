@@ -10,6 +10,7 @@ import { registerModerationHandlers } from './moderationHandlers.js';
 import { registerQuizHandlers } from './quizHandlers.js';
 import { emitPresence, setIo } from './broadcast.js';
 import { presenceCount } from './presence.js';
+import { scheduleOpenTimedPolls } from './pollScheduler.js';
 
 /** Best-effort client IP, honoring a single proxy hop. */
 function resolveIp(socket) {
@@ -23,6 +24,10 @@ export function attachSockets(httpServer) {
     cors: { origin: env.clientOrigin, methods: ['GET', 'POST'] },
   });
   setIo(io); // expose to REST controllers for consistent lifecycle broadcasts
+  // Recreate timers for polls that were live before a process restart.
+  void scheduleOpenTimedPolls(io).catch((err) =>
+    log.error('poll.expiry.restore.failed', { message: err?.message })
+  );
 
   // Handshake auth: verify the JWT if present (sets socket.data.user) and carry the
   // anonymous clientId (used by quiz players, who connect without a token).

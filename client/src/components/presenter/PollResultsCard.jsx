@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { Button } from '../shared/Button.jsx';
 import { Icon } from '../shared/icons.jsx';
+import { PollCountdown } from '../shared/PollCountdown.jsx';
 
 const BAR_COLORS = ['#0d9488', '#4f46e5', '#0369a1', '#0891b2', '#7c3aed', '#059669'];
 
@@ -38,6 +39,16 @@ export function PollResultsCard({ poll, onClose }) {
           </Button>
         )}
       </div>
+
+      {!closed && poll.closesAt && (
+        <p
+          className="-mt-2 mb-3 flex items-center gap-1 text-xs font-medium text-warning"
+          aria-live="polite"
+        >
+          <Icon.Clock width={13} height={13} />
+          <PollCountdown closesAt={poll.closesAt} />
+        </p>
+      )}
 
       {total === 0 ? (
         <p className="py-6 text-center text-sm text-muted">Waiting for the first vote…</p>

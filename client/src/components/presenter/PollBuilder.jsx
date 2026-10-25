@@ -9,6 +9,7 @@ const MIN_OPTIONS = 2;
 export function PollBuilder({ onCreate }) {
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
+  const [durationSeconds, setDurationSeconds] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -28,9 +29,10 @@ export function PollBuilder({ onCreate }) {
 
     setBusy(true);
     try {
-      await onCreate(q, opts);
+      await onCreate(q, opts, durationSeconds ? Number(durationSeconds) : null);
       setQuestion('');
       setOptions(['', '']);
+      setDurationSeconds('');
     } catch (err) {
       setError(err.message || 'Could not create poll.');
     } finally {
@@ -77,6 +79,23 @@ export function PollBuilder({ onCreate }) {
           </div>
         ))}
       </div>
+
+      <label htmlFor="poll-timer" className="mb-1 mt-4 block text-sm font-medium text-fg">
+        Poll timer <span className="font-normal text-muted">(optional)</span>
+      </label>
+      <select
+        id="poll-timer"
+        value={durationSeconds}
+        onChange={(e) => setDurationSeconds(e.target.value)}
+        className="w-full rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-sm text-fg focus:bg-surface"
+      >
+        <option value="">No timer — close manually</option>
+        <option value="30">30 seconds</option>
+        <option value="60">1 minute</option>
+        <option value="120">2 minutes</option>
+        <option value="300">5 minutes</option>
+        <option value="600">10 minutes</option>
+      </select>
 
       {options.length < MAX_OPTIONS && (
         <Button type="button" variant="ghost" size="sm" onClick={addOption} className="mt-2">

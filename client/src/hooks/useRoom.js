@@ -97,7 +97,8 @@ export function useRoom(code) {
   }, []);
 
   const createPoll = useCallback(
-    (question, options) => emitAck('poll:create', { question, options }),
+    (question, options, durationSeconds) =>
+      emitAck('poll:create', { question, options, durationSeconds }),
     []
   );
   const closePoll = useCallback((pollId) => emitAck('poll:close', { pollId }), []);

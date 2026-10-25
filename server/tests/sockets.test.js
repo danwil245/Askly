@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { startTestServer, registerUser, createRoom, connectClient, emit, waitFor } from './helpers.js';
+import {
+  startTestServer,
+  registerUser,
+  createRoom,
+  connectClient,
+  emit,
+  waitFor,
+} from './helpers.js';
 import { createApp } from '../src/app.js';
 import { resetBuckets } from '../src/middleware/antiSpam.js';
 import { env } from '../src/config/env.js';
@@ -124,6 +131,34 @@ describe('socket contract (v2)', () => {
     const second = await emit(audSock, 'poll:vote', { pollId: poll.id, optionId: optX });
     expect(second.ok).toBe(false);
     expect(second.error.code).toBe('ALREADY_VOTED');
+  });
+
+  it('automatically closes a timed poll and rejects a late vote', async () => {
+    const { owner, audience, code } = await setup();
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    await emit(hostSock, 'room:join', { code });
+    await emit(audSock, 'room:join', { code });
+
+    const pollUpdate = waitFor(audSock, 'poll:updated', 3000);
+    const created = await emit(hostSock, 'poll:create', {
+      question: 'Quick decision?',
+      options: ['Yes', 'No'],
+      durationSeconds: 1,
+    });
+    expect(created.ok).toBe(true);
+    expect(created.data.closesAt).toBeTruthy();
+
+    const expired = await pollUpdate;
+    expect(expired.id).toBe(created.data.id);
+    expect(expired.status).toBe('closed');
+
+    const late = await emit(audSock, 'poll:vote', {
+      pollId: created.data.id,
+      optionId: created.data.options[0].id,
+    });
+    expect(late.ok).toBe(false);
+    expect(late.error.code).toBe('POLL_CLOSED');
   });
 
   it('rejects host-only events from non-owners with FORBIDDEN', async () => {

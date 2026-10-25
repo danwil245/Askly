@@ -52,6 +52,8 @@ export const pollCreateSchema = z.object({
     .array(z.string().transform(cleanText).pipe(z.string().min(1).max(80)))
     .min(2, 'A poll needs at least 2 options')
     .max(6, 'A poll can have at most 6 options'),
+  // Optional so existing clients and untimed polls remain fully compatible.
+  durationSeconds: z.number().int().min(1).max(3600).nullable().optional().default(null),
 });
 
 export const pollVoteSchema = z.object({

@@ -23,6 +23,9 @@ const pollSchema = new mongoose.Schema(
       },
     },
     status: { type: String, enum: ['open', 'closed'], default: 'open' },
+    // Null means the host closes this poll manually. A concrete timestamp is enforced
+    // on the server so a client-side countdown can never accept a late vote.
+    closesAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

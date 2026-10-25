@@ -6,7 +6,7 @@ import { appError, ERROR_CODES } from '../utils/errors.js';
 import { requireObjectId } from '../utils/ids.js';
 
 /** Create a poll (host-only; authorization enforced by the caller) in the current session. */
-export async function createPoll({ roomCode, question, options }) {
+export async function createPoll({ roomCode, question, options, durationSeconds = null }) {
   const room = await getRoomByCodeOrThrow(roomCode);
   assertRoomOpen(room);
 
@@ -16,6 +16,7 @@ export async function createPoll({ roomCode, question, options }) {
     sessionId: room.currentSessionId,
     question,
     options: options.map((text) => ({ id: crypto.randomUUID(), text, votes: 0 })),
+    closesAt: durationSeconds ? new Date(Date.now() + durationSeconds * 1000) : null,
   });
   return poll;
 }
@@ -40,6 +41,12 @@ export async function recordVote({ roomCode, pollId, optionId, userId }) {
   const poll = await Poll.findOne({ _id: pollId, roomId: room._id });
   if (!poll) throw appError(ERROR_CODES.NOT_FOUND, 'Poll not found');
   if (poll.status === 'closed') throw appError(ERROR_CODES.POLL_CLOSED, 'This poll is closed');
+  if (poll.closesAt && poll.closesAt.getTime() <= Date.now()) {
+    // The scheduler broadcasts normal expirations, but this guard is authoritative if
+    // a process was paused/restarted just as a timer elapsed.
+    await Poll.updateOne({ _id: poll._id, status: 'open' }, { $set: { status: 'closed' } });
+    throw appError(ERROR_CODES.POLL_CLOSED, 'This poll has expired');
+  }
 
   const option = poll.options.find((o) => o.id === optionId);
   if (!option) throw appError(ERROR_CODES.VALIDATION_ERROR, 'Unknown poll option');
@@ -75,4 +82,17 @@ export async function closePoll({ roomCode, pollId }) {
     await poll.save();
   }
   return poll;
+}
+
+/**
+ * Atomically close a poll only when its persisted deadline has passed. Used by the
+ * socket scheduler so every connected client receives the same state transition.
+ */
+export async function expirePoll(pollId) {
+  requireObjectId(pollId, 'Poll');
+  return Poll.findOneAndUpdate(
+    { _id: pollId, status: 'open', closesAt: { $ne: null, $lte: new Date() } },
+    { $set: { status: 'closed' } },
+    { new: true }
+  );
 }
