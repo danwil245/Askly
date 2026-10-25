@@ -5,7 +5,7 @@ import { getRoomByCodeOrThrow, assertRoomOpen } from './roomService.js';
 import { appError, ERROR_CODES } from '../utils/errors.js';
 import { requireObjectId } from '../utils/ids.js';
 
-/** Create a poll (host-only; authorization enforced by the caller) in the current session. */
+
 export async function createPoll({ roomCode, question, options }) {
   const room = await getRoomByCodeOrThrow(roomCode);
   assertRoomOpen(room);
