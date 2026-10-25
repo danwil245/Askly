@@ -8,7 +8,11 @@ export async function presenceCount(io, code) {
   return all.filter((s) => !s.data?.isHost).length;
 }
 
-/** Count sockets from a given IP currently in a room (for the connection cap). */
+/**
+ * Person 3 — Anti-Spamming Security: socketsFromIpInRoom
+ * IP-based connection tracking for flood protection and campus Wi-Fi connection caps.
+ * Count sockets from a given IP currently in a room.
+ */
 export async function socketsFromIpInRoom(io, code, ip) {
   const all = await io.in(code).fetchSockets();
   return all.filter((s) => s.data?.ip === ip).length;

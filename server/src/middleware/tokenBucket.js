@@ -1,4 +1,7 @@
 /**
+ * Person 3 — Anti-Spamming Security: TokenBucket Engine
+ * In-memory token-bucket rate limiting engine with continuous refill and idle cleanup.
+ *
  * A tiny in-memory token-bucket rate limiter. Each key gets `capacity` tokens that
  * refill continuously at `capacity / windowMs`. `take()` returns false when empty.
  *

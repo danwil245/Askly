@@ -61,6 +61,7 @@ describe('hash / host tokens', () => {
   });
 });
 
+// Person 3 — Anti-Spamming Security: Unit tests for the TokenBucket algorithm (capacity, refill rate, sweeping).
 describe('TokenBucket', () => {
   it('allows up to capacity then blocks', () => {
     const b = new TokenBucket({ capacity: 3, windowMs: 60_000 });

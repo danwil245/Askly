@@ -1,3 +1,7 @@
+/**
+ * Person 3 — Anti-Spamming Security: String Sanitization Utilities
+ * Utility functions for input sanitization, control-character stripping, and whitespace trimming.
+ */
 // Shared text hygiene: strip control characters (keep tab/newline/CR) and trim.
 // Done by codepoint so no literal control bytes live in source.
 const KEEP = new Set([9, 10, 13]);

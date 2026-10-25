@@ -1,3 +1,7 @@
+/**
+ * Quiz Socket Handlers
+ * Integrates Person 3 anti-spam rate limiting for quiz joins and player answers.
+ */
 import { z } from 'zod';
 import { withAck } from '../utils/ack.js';
 import * as engine from '../services/quizEngine.js';
@@ -56,6 +60,7 @@ export function registerQuizHandlers(io, socket) {
       const code = socket.data.quizCode;
       const clientId = socket.data.quizClientId;
       if (!code || !clientId) throw appError(ERROR_CODES.WRONG_PHASE, 'Join the game first');
+      // Person 3 — Anti-Spamming Security: Socket rate-limit enforcement for quiz player answers.
       enforceSocketLimit('quizAnswer', { id: clientId, ip: socket.data.ip });
       const { questionId, optionId } = answerSchema.parse(payload || {});
       const game = await engine.getOrCreateGame(code);

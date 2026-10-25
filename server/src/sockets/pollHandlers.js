@@ -1,3 +1,7 @@
+/**
+ * Poll Socket Handlers
+ * Integrates Person 3 anti-spam rate limiting for poll:vote.
+ */
 import { withAck } from '../utils/ack.js';
 import { pollCreateSchema, pollVoteSchema, pollCloseSchema } from './schemas.js';
 import { createPoll, recordVote, closePoll } from '../services/pollService.js';
@@ -27,6 +31,7 @@ export function registerPollHandlers(io, socket) {
     'poll:vote',
     withAck(async (payload) => {
       const code = requireJoined(socket);
+      // Person 3 — Anti-Spamming Security: Socket rate-limit enforcement for poll:vote.
       enforceSocketLimit('vote', { id: socket.data.userId, ip: socket.data.ip });
       const { pollId, optionId } = pollVoteSchema.parse(payload || {});
 

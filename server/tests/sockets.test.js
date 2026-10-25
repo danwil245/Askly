@@ -1,3 +1,7 @@
+/**
+ * Socket Contract Integration Tests
+ * Includes Person 3 Anti-Spamming Security verification (socket rate-limiting, duplicate vote blocking, anti-spam rejections).
+ */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { startTestServer, registerUser, createRoom, connectClient, emit, waitFor } from './helpers.js';
 import { createApp } from '../src/app.js';
@@ -106,6 +110,7 @@ describe('socket contract (v2)', () => {
     expect(state2.data.questions.find((x) => x.id === questionId).upvoteCount).toBe(7);
   });
 
+  // Person 3 — Anti-Spamming Security: Database-level duplicate vote blocking verification.
   it('rejects a duplicate poll vote with ALREADY_VOTED (one vote per user)', async () => {
     const { owner, audience, code } = await setup();
     const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
@@ -222,6 +227,7 @@ describe('socket contract (v2)', () => {
     expect((await audReceived).authorName).toBe('Namee');
   });
 
+  // Person 3 — Anti-Spamming Security: Integration test verifying campus Wi-Fi connection cap and rate-limit rejection.
   it('enforces the per-IP connection cap on audience joins', async () => {
     const original = env.limits.maxSocketsPerIpPerRoom;
     env.limits.maxSocketsPerIpPerRoom = 2;
