@@ -2,7 +2,24 @@ import { Link } from 'react-router-dom';
 import { Button } from '../shared/Button.jsx';
 import { Icon } from '../shared/icons.jsx';
 
-/** A chapter tile in the mentor hub. */
+/**
+ * ChapterCard — a tile in the MentorHub chapter grid.
+ *
+ * Displays:
+ *   - Chapter name (linked to /mentor/chapters/:id).
+ *   - An "Archived" badge when chapter.archived is true.
+ *   - Optional description (clamped to 2 lines).
+ *   - The count of mentor rooms in this chapter (roomCount, supplied by the API).
+ *   - "Open" button (link to the chapter page) and an archive/unarchive toggle button.
+ *
+ * The `busy` prop is set by MentorHub while an archive API call is in-flight,
+ * which surfaces as a loading spinner on the toggle button.
+ *
+ * Props:
+ *   chapter        — chapter object from the API ({ id, name, description, archived, roomCount }).
+ *   onArchiveToggle — callback(chapter) invoked when the archive/unarchive button is clicked.
+ *   busy           — boolean; true while an archive toggle request is pending.
+ */
 export function ChapterCard({ chapter, onArchiveToggle, busy }) {
   return (
     <div className="card flex flex-col p-5">

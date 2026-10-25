@@ -3,8 +3,22 @@ import { Modal } from '../shared/Modal.jsx';
 import { Button } from '../shared/Button.jsx';
 
 /**
- * Create a qa/mentor room. For mentor rooms the chapter is fixed by the caller
- * (passed via `chapterId`), so only the title is collected here.
+ * CreateRoomModal — modal form for creating a new qa or mentor room.
+ *
+ * For mentor rooms the chapter association is fixed by the caller (ChapterPage passes
+ * `chapterId` when invoking `api.createRoom`), so only the room title is collected here.
+ *
+ * Responsibilities:
+ *   - Collect a room title (required, max 80 chars enforced by `.slice()` in onChange).
+ *   - On submit: trim, validate non-empty, call `onCreate(title)`, reset, and close.
+ *   - Display API error messages inline.
+ *   - Disable submit while title is empty; show loading spinner during the async call.
+ *
+ * Props:
+ *   open     — boolean controlling modal visibility.
+ *   onClose  — callback invoked on cancel or after successful creation.
+ *   onCreate — async callback(title: string) that performs the API call.
+ *   kind     — display label for the modal title (e.g. 'mentor', 'Q&A'). Defaults to 'Q&A'.
  */
 export function CreateRoomModal({ open, onClose, onCreate, kind = 'Q&A' }) {
   const [title, setTitle] = useState('');

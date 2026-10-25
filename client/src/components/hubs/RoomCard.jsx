@@ -2,8 +2,13 @@ import { Link } from 'react-router-dom';
 import { Button } from '../shared/Button.jsx';
 import { Icon } from '../shared/icons.jsx';
 
+// Maps the room type field to a human-readable label shown in the room card badge.
 const TYPE_LABEL = { qa: 'Q&A', mentor: 'Mentor', quiz: 'Quiz' };
 
+/**
+ * Format a UTC ISO timestamp as a relative time string (e.g. "5m ago", "2h ago", "3d ago").
+ * Returns an empty string for falsy input.
+ */
 const timeAgo = (iso) => {
   if (!iso) return '';
   const diff = Date.now() - new Date(iso).getTime();
@@ -15,7 +20,29 @@ const timeAgo = (iso) => {
   return `${Math.round(hrs / 24)}d ago`;
 };
 
-/** A room row in a hub: title, type/status, current session, lifecycle actions. */
+/**
+ * RoomCard — a row in a hub (ChapterPage or SpeakerHub) showing room info and lifecycle actions.
+ *
+ * Displays:
+ *   - Room title, type badge, and open/closed status indicator.
+ *   - Join code (monospace), current session name (if open), and last-activity time.
+ *   - Chapter reassignment selector (rendered only when `chapters` and `onMove` are provided).
+ *     Selecting a different chapter calls `onMove(code, chapterId)` immediately.
+ *   - "History" link → /history/:code (always visible).
+ *   - When open:  "Open dashboard" link → /host/:code  +  "Close" button.
+ *   - When closed: "Reopen" button (shows loading state via the `busy` prop).
+ *
+ * The chapter selector is specific to the mentor room context; it is hidden when the
+ * `chapters` prop is not supplied (e.g. in the Speaker hub).
+ *
+ * Props:
+ *   room         — room object from the API.
+ *   onReopen     — callback(code) to reopen a closed room.
+ *   onCloseClick — callback(room) to initiate the close flow (opens CloseRoomDialog).
+ *   busy         — boolean; true while a reopen request for this room is in-flight.
+ *   chapters     — optional array of chapters for the move-to-chapter selector.
+ *   onMove       — optional callback(code, chapterId) when the chapter selector changes.
+ */
 export function RoomCard({ room, onReopen, onCloseClick, busy, chapters, onMove }) {
   const open = room.status === 'open';
   return (
@@ -47,6 +74,7 @@ export function RoomCard({ room, onReopen, onCloseClick, busy, chapters, onMove 
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {/* Chapter selector — only rendered for mentor rooms in ChapterPage. */}
         {chapters && onMove && (
           <select
             value={room.chapterId || ''}

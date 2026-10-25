@@ -1,3 +1,23 @@
+/**
+ * MentorHub — the top-level dashboard for the Mentor Rooms mode.
+ *
+ * Route: /mentor  (authentication required — protected by <RequireAuth> in App.jsx)
+ *
+ * Responsibilities:
+ *   - Fetch and display the authenticated mentor's chapters via GET /api/chapters.
+ *   - Support an "include archived" toggle that re-fetches the list with archived
+ *     chapters visible. The toggle updates `includeArchived` state, which triggers
+ *     `load()` to re-run through the `useEffect` → `useCallback` dependency chain.
+ *   - Allow chapter creation via CreateChapterModal; on success the list is refreshed.
+ *   - Allow toggling a chapter's archived state via the ChapterCard archive button.
+ *     `busyId` tracks which chapter is currently being toggled to show a loading state.
+ *   - Show a loading skeleton (null chapters), an empty state, or the chapter grid.
+ *
+ * Data flow:
+ *   mount / includeArchived change → load() → api.chapters() → setChapters()
+ *   "New chapter" button → CreateChapterModal → api.createChapter() → load()
+ *   archive toggle        → api.patchChapter({ archived })     → load()
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/http.js';
 import { HubLayout } from '../components/hubs/HubLayout.jsx';
@@ -10,11 +30,12 @@ import { useToast } from '../hooks/useToast.jsx';
 
 export function MentorHub() {
   const { toast } = useToast();
-  const [chapters, setChapters] = useState(null);
+  const [chapters, setChapters] = useState(null); // null = loading; [] = loaded empty
   const [includeArchived, setIncludeArchived] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [busyId, setBusyId] = useState(null);
+  const [busyId, setBusyId] = useState(null); // chapter id currently being archived/unarchived
 
+  // `load` is memoised so the useEffect re-runs only when includeArchived changes.
   const load = useCallback(async () => {
     try {
       const { chapters: list } = await api.chapters({ includeArchived });
