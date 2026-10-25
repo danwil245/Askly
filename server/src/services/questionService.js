@@ -4,10 +4,7 @@ import { appError, ERROR_CODES } from '../utils/errors.js';
 import { requireObjectId } from '../utils/ids.js';
 import { env } from '../config/env.js';
 
-/**
- * Create a question in the room's current session. Text is already trimmed, bounded and
- * control-stripped by the zod schema. Author identity is a userId (+ denormalized name).
- */
+
 export async function createQuestion({ roomCode, text, authorUserId, authorName }) {
   const room = await getRoomByCodeOrThrow(roomCode);
   assertRoomOpen(room);
