@@ -48,6 +48,7 @@ export function useRoom(code) {
     const onSessionRenamed = ({ id, name }) => dispatch({ type: 'SESSION_RENAMED', id, name });
     const onPresence = ({ count }) => dispatch({ type: 'PRESENCE', count });
     const onAnalytics = (snapshot) => dispatch({ type: 'ANALYTICS', snapshot });
+    const onSpotlight = ({ questionId }) => dispatch({ type: 'SPOTLIGHT', questionId });
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
@@ -60,6 +61,7 @@ export function useRoom(code) {
     socket.on('session:renamed', onSessionRenamed);
     socket.on('presence:updated', onPresence);
     socket.on('analytics:updated', onAnalytics);
+    socket.on('room:spotlight', onSpotlight);
 
     dispatch({ type: 'CONNECTION', status: 'connecting' });
     if (socket.connected) onConnect();
@@ -77,6 +79,7 @@ export function useRoom(code) {
       socket.off('session:renamed', onSessionRenamed);
       socket.off('presence:updated', onPresence);
       socket.off('analytics:updated', onAnalytics);
+      socket.off('room:spotlight', onSpotlight);
     };
   }, [code, join]);
 
@@ -109,6 +112,11 @@ export function useRoom(code) {
     (questionId, hidden) => emitAck('question:hide', { questionId, hidden }),
     []
   );
+  // questionId = null clears the spotlight.
+  const spotlightQuestion = useCallback(
+    (questionId) => emitAck('question:spotlight', { questionId }),
+    []
+  );
   const closeRoom = useCallback((sessionName) => emitAck('room:close', { sessionName }), []);
   const openRoom = useCallback(() => emitAck('room:open', {}), []);
 
@@ -122,6 +130,7 @@ export function useRoom(code) {
       closePoll,
       answerQuestion,
       hideQuestion,
+      spotlightQuestion,
       closeRoom,
       openRoom,
     },

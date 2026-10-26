@@ -39,6 +39,11 @@ export function AudienceRoom() {
     () => state.polls.filter((p) => p.status === 'closed'),
     [state.polls]
   );
+  const spotlightId = state.room?.spotlightQuestionId;
+  const spotlight = useMemo(
+    () => (spotlightId ? state.questions.find((q) => q.id === spotlightId) : null),
+    [spotlightId, state.questions]
+  );
 
   const guard = async (fn) => {
     try {
@@ -114,6 +119,33 @@ export function AudienceRoom() {
           </div>
         )}
 
+        {/* Spotlighted question ("Now answering") */}
+        {spotlight && (
+          <div
+            className="mb-4 flex items-start gap-3 rounded-2xl border border-primary/40 bg-primary/10 p-4"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-fg">
+              <Icon.Mic width={18} height={18} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Now answering
+              </p>
+              <p className="mt-0.5 whitespace-pre-wrap break-words font-heading text-sm font-semibold text-fg">
+                {spotlight.text}
+              </p>
+              <p className="mt-0.5 text-xs text-muted">
+                {spotlight.authorName && spotlight.authorName !== 'Anonymous'
+                  ? `${spotlight.authorName} · `
+                  : ''}
+                {spotlight.upvoteCount} {spotlight.upvoteCount === 1 ? 'upvote' : 'upvotes'}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Active polls */}
         {openPolls.length > 0 && (
           <section className="mb-6 flex flex-col gap-3" aria-label="Active polls">
@@ -140,6 +172,7 @@ export function AudienceRoom() {
           myUpvotes={state.myUpvotes}
           disabled={closed}
           onUpvote={(id) => guard(() => actions.upvoteQuestion(id))}
+          spotlightId={spotlight?.id}
         />
 
         {/* Closed polls (final results) */}

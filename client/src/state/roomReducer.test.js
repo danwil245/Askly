@@ -64,4 +64,19 @@ describe('roomReducer', () => {
     s = roomReducer(s, { type: 'SESSION_RENAMED', id: 's1', name: 'New' });
     expect(s.sessions[0].name).toBe('New');
   });
+
+  it('sets and clears the spotlighted question', () => {
+    let s = { ...base(), room: { code: 'ABC123', status: 'open', spotlightQuestionId: null } };
+    s = roomReducer(s, { type: 'SPOTLIGHT', questionId: 'q1' });
+    expect(s.room.spotlightQuestionId).toBe('q1');
+    s = roomReducer(s, { type: 'SPOTLIGHT', questionId: null });
+    expect(s.room.spotlightQuestionId).toBeNull();
+  });
+
+  it('clears the spotlight when the room closes', () => {
+    let s = { ...base(), room: { code: 'ABC123', status: 'open', spotlightQuestionId: 'q1' } };
+    s = roomReducer(s, { type: 'ROOM_UPDATED', status: 'closed', currentSessionId: null });
+    expect(s.room.status).toBe('closed');
+    expect(s.room.spotlightQuestionId).toBeNull();
+  });
 });

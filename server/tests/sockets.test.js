@@ -173,6 +173,98 @@ describe('socket contract (v2)', () => {
     expect(hostState.data.questions.find((q) => q.id === questionId)).toBeDefined();
   });
 
+  it('spotlights a question for everyone and persists it in room:state', async () => {
+    const { owner, audience, code } = await setup();
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    await emit(hostSock, 'room:join', { code });
+    await emit(audSock, 'room:join', { code });
+
+    const questionId = (await emit(audSock, 'question:ask', { text: 'Spotlight me' })).data.id;
+
+    const audSpot = waitFor(audSock, 'room:spotlight');
+    const ack = await emit(hostSock, 'question:spotlight', { questionId });
+    expect(ack.ok).toBe(true);
+    expect(ack.data.questionId).toBe(questionId);
+    expect((await audSpot).questionId).toBe(questionId);
+
+    // A reconnecting audience member sees the banner straight away.
+    const audState = await emit(audSock, 'room:join', { code });
+    expect(audState.data.room.spotlightQuestionId).toBe(questionId);
+
+    const audCleared = waitFor(audSock, 'room:spotlight');
+    await emit(hostSock, 'question:spotlight', { questionId: null });
+    expect((await audCleared).questionId).toBeNull();
+  });
+
+  it('marks the previous spotlighted question answered when the host moves on', async () => {
+    const { owner, audience, code } = await setup();
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    await emit(hostSock, 'room:join', { code });
+    await emit(audSock, 'room:join', { code });
+
+    const first = (await emit(audSock, 'question:ask', { text: 'First one' })).data.id;
+    const second = (await emit(audSock, 'question:ask', { text: 'Second one' })).data.id;
+    const audSpot = waitFor(audSock, 'room:spotlight');
+    await emit(hostSock, 'question:spotlight', { questionId: first });
+    await audSpot;
+
+    const audUpdate = waitFor(audSock, 'question:updated');
+    await emit(hostSock, 'question:spotlight', { questionId: second });
+    const updated = await audUpdate;
+    expect(updated.id).toBe(first);
+    expect(updated.answered).toBe(true);
+
+    const state = await emit(hostSock, 'room:join', { code });
+    expect(state.data.room.spotlightQuestionId).toBe(second);
+    expect(state.data.questions.find((q) => q.id === second).answered).toBe(false);
+  });
+
+  it('rejects spotlight from the audience and for hidden questions; hiding clears it', async () => {
+    const { owner, audience, code } = await setup();
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    await emit(hostSock, 'room:join', { code });
+    await emit(audSock, 'room:join', { code });
+
+    const questionId = (await emit(audSock, 'question:ask', { text: 'Hide while live' })).data.id;
+
+    const forbidden = await emit(audSock, 'question:spotlight', { questionId });
+    expect(forbidden.ok).toBe(false);
+    expect(forbidden.error.code).toBe('FORBIDDEN');
+
+    const audSpot = waitFor(audSock, 'room:spotlight');
+    await emit(hostSock, 'question:spotlight', { questionId });
+    await audSpot;
+    const audCleared = waitFor(audSock, 'room:spotlight');
+    await emit(hostSock, 'question:hide', { questionId, hidden: true });
+    expect((await audCleared).questionId).toBeNull();
+
+    const hiddenSpot = await emit(hostSock, 'question:spotlight', { questionId });
+    expect(hiddenSpot.ok).toBe(false);
+    expect(hiddenSpot.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('clears the spotlight when the room closes', async () => {
+    const { owner, audience, code } = await setup();
+    const hostSock = track(await connectClient(ctx.url, { token: owner.token }));
+    await emit(hostSock, 'room:join', { code });
+    const audSock = track(await connectClient(ctx.url, { token: audience.token }));
+    await emit(audSock, 'room:join', { code });
+
+    const questionId = (await emit(audSock, 'question:ask', { text: 'Last question' })).data.id;
+    await emit(hostSock, 'question:spotlight', { questionId });
+    await emit(hostSock, 'room:close', {});
+
+    const state = await emit(hostSock, 'room:join', { code });
+    expect(state.data.room.spotlightQuestionId).toBeNull();
+
+    const closed = await emit(hostSock, 'question:spotlight', { questionId });
+    expect(closed.ok).toBe(false);
+    expect(closed.error.code).toBe('ROOM_CLOSED');
+  });
+
   it('closing a room rejects writes and auto-closes open polls; reopening keeps history', async () => {
     const { owner, audience, code } = await setup();
     const hostSock = track(await connectClient(ctx.url, { token: owner.token }));

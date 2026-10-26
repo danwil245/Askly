@@ -4,13 +4,13 @@ import { Icon } from '../shared/icons.jsx';
  * A single question row with an upvote toggle. `mine` reflects the user's own upvote
  * state; the count is always whatever the server last broadcast.
  */
-export function QuestionItem({ question, mine, onUpvote, disabled }) {
+export function QuestionItem({ question, mine, onUpvote, disabled, spotlighted }) {
   const { text, upvoteCount, answered } = question;
   return (
     <li
-      className={`flex animate-slide-up items-start gap-3 rounded-2xl border border-border bg-surface p-3 transition-colors ${
-        answered ? 'opacity-70' : ''
-      }`}
+      className={`flex animate-slide-up items-start gap-3 rounded-2xl border bg-surface p-3 transition-colors ${
+        spotlighted ? 'border-primary' : 'border-border'
+      } ${answered ? 'opacity-70' : ''}`}
     >
       <button
         onClick={() => onUpvote(question.id)}
@@ -31,6 +31,12 @@ export function QuestionItem({ question, mine, onUpvote, disabled }) {
         <p className="whitespace-pre-wrap break-words text-[15px] leading-snug text-fg">{text}</p>
         {question.authorName && question.authorName !== 'Anonymous' && (
           <p className="mt-0.5 text-xs text-muted">{question.authorName}</p>
+        )}
+        {spotlighted && (
+          <span className="mt-1.5 mr-1.5 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+            <Icon.Mic width={13} height={13} />
+            Now answering
+          </span>
         )}
         {answered && (
           <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">

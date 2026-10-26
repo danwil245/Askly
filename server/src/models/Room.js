@@ -35,6 +35,8 @@ const roomSchema = new mongoose.Schema(
     parentRoomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Room', default: null },
     // If a quiz is currently running in this room:
     activeQuizCode: { type: String, default: null },
+    // The question the host is answering right now ("Now answering" banner); one at a time.
+    spotlightQuestionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', default: null },
     settings: {
       // 'host': audience sees "Anonymous", host sees the asker's name. 'all': everyone sees names.
       showAuthorNames: { type: String, enum: ['host', 'all'], default: 'host' },

@@ -4,7 +4,7 @@
 
 export const initialState = {
   connection: 'idle', // idle | connecting | connected | reconnecting | error
-  room: null, // { code, title, type, status, chapter?, settings }
+  room: null, // { code, title, type, status, chapter?, settings, spotlightQuestionId }
   isHost: false,
   currentSessionId: null,
   sessions: [], // [{ id, name, startedAt, endedAt, status }]
@@ -67,10 +67,22 @@ export function roomReducer(state, action) {
     case 'POLL_UPDATED':
       return { ...state, polls: upsert(state.polls, action.poll) };
 
+    case 'SPOTLIGHT':
+      return state.room
+        ? { ...state, room: { ...state.room, spotlightQuestionId: action.questionId } }
+        : state;
+
     case 'ROOM_UPDATED':
       return {
         ...state,
-        room: state.room ? { ...state.room, status: action.status } : state.room,
+        room: state.room
+          ? {
+              ...state.room,
+              status: action.status,
+              // Closing a room clears the spotlight server-side.
+              ...(action.status === 'closed' ? { spotlightQuestionId: null } : {}),
+            }
+          : state.room,
         currentSessionId: action.currentSessionId ?? state.currentSessionId,
         sessions: action.sessions || state.sessions,
       };

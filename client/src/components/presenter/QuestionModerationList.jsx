@@ -4,9 +4,14 @@ import { Button } from '../shared/Button.jsx';
 import { Icon } from '../shared/icons.jsx';
 import { splitQuestions, sortQuestions } from '../../lib/sort.js';
 
-function ModRow({ q, onAnswer, onHide, hiddenSection }) {
+function ModRow({ q, onAnswer, onHide, onSpotlight, spotlightId, closed, hiddenSection }) {
+  const spotlighted = q.id === spotlightId;
   return (
-    <li className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-3">
+    <li
+      className={`flex items-start gap-3 rounded-2xl border bg-surface p-3 ${
+        spotlighted ? 'border-primary ring-1 ring-primary/40' : 'border-border'
+      }`}
+    >
       <div className="flex min-w-[3rem] flex-col items-center rounded-xl bg-surface-2 px-2 py-1.5">
         <Icon.ChevronUp width={16} height={16} className="text-muted" />
         <span className="tabular text-sm font-semibold">{q.upvoteCount}</span>
@@ -15,6 +20,21 @@ function ModRow({ q, onAnswer, onHide, hiddenSection }) {
         <p className="whitespace-pre-wrap break-words text-[15px] leading-snug text-fg">{q.text}</p>
         <p className="mt-0.5 text-xs text-muted">{q.authorName}</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          {spotlighted && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+              <Icon.Mic width={12} height={12} /> Now answering
+            </span>
+          )}
+          {!hiddenSection && !closed && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onSpotlight(spotlighted ? null : q.id)}
+            >
+              <Icon.Mic width={15} height={15} />
+              {spotlighted ? 'Stop spotlight' : 'Spotlight'}
+            </Button>
+          )}
           {q.answered && (
             <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
               <Icon.Check width={12} height={12} /> Answered
@@ -36,7 +56,7 @@ function ModRow({ q, onAnswer, onHide, hiddenSection }) {
   );
 }
 
-function SessionGroup({ session, questions, onAnswer, onHide, defaultOpen }) {
+function SessionGroup({ session, questions, rowProps, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="rounded-2xl border border-border">
@@ -59,7 +79,7 @@ function SessionGroup({ session, questions, onAnswer, onHide, defaultOpen }) {
       {open && (
         <ul className="flex flex-col gap-2.5 px-3 pb-3">
           {questions.map((q) => (
-            <ModRow key={q.id} q={q} onAnswer={onAnswer} onHide={onHide} />
+            <ModRow key={q.id} q={q} {...rowProps} />
           ))}
         </ul>
       )}
@@ -78,9 +98,13 @@ export function QuestionModerationList({
   currentSessionId,
   onAnswer,
   onHide,
+  onSpotlight,
+  spotlightId = null,
+  closed = false,
 }) {
   const { visible, hidden } = useMemo(() => splitQuestions(questions), [questions]);
   const [showHidden, setShowHidden] = useState(false);
+  const rowProps = { onAnswer, onHide, onSpotlight, spotlightId, closed };
 
   const grouped = sessions.length > 1;
 
@@ -111,15 +135,14 @@ export function QuestionModerationList({
             key={g.session.id}
             session={g.session}
             questions={g.questions}
-            onAnswer={onAnswer}
-            onHide={onHide}
+            rowProps={rowProps}
             defaultOpen={i === 0}
           />
         ))
       ) : (
         <ul className="flex flex-col gap-2.5">
           {visible.map((q) => (
-            <ModRow key={q.id} q={q} onAnswer={onAnswer} onHide={onHide} />
+            <ModRow key={q.id} q={q} {...rowProps} />
           ))}
         </ul>
       )}
@@ -140,7 +163,7 @@ export function QuestionModerationList({
           {showHidden && (
             <ul className="flex flex-col gap-2.5 px-3 pb-3">
               {hidden.map((q) => (
-                <ModRow key={q.id} q={q} onAnswer={onAnswer} onHide={onHide} hiddenSection />
+                <ModRow key={q.id} q={q} {...rowProps} hiddenSection />
               ))}
             </ul>
           )}

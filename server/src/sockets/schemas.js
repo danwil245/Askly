@@ -50,6 +50,11 @@ export const questionHideSchema = z.object({
   hidden: z.boolean().optional().default(true),
 });
 
+// null clears the spotlight.
+export const questionSpotlightSchema = z.object({
+  questionId: z.string().trim().min(1).nullable(),
+});
+
 export const pollCreateSchema = z.object({
   question: z.string().transform(cleanText).pipe(z.string().min(1).max(140)),
   options: z

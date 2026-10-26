@@ -14,6 +14,7 @@ export function serializeRoom(room, { chapter } = {}) {
     status: room.status,
     currentSessionId: room.currentSessionId ? String(room.currentSessionId) : null,
     activeQuizCode: room.activeQuizCode || null,
+    spotlightQuestionId: room.spotlightQuestionId ? String(room.spotlightQuestionId) : null,
     settings: { showAuthorNames: room.settings?.showAuthorNames || 'host' },
     ...(chapter ? { chapter: serializeChapter(chapter) } : {}),
   };

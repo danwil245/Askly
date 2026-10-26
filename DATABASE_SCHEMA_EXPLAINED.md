@@ -34,6 +34,7 @@ Represents the permanent virtual room that hosts create and share.
   * `currentSessionId` — References the currently active `Session` document.
   * `chapterId` — (Optional) Links a mentor room to a specific academic course/subject.
   * `settings.showAuthorNames` — Toggles question anonymity (`'host'` sees names, `'all'` attendees see names).
+  * `spotlightQuestionId` — (Optional) The question the host is answering right now, shown to the audience as "Now answering". Cleared when the room closes.
 * **Presentation One-Liner:**
   > *"The Room is the permanent entity that never changes its code, while sessions represent individual meetings inside it."*
 

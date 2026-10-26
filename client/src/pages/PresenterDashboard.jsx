@@ -168,6 +168,9 @@ export function PresenterDashboard() {
               currentSessionId={state.currentSessionId}
               onAnswer={(id, answered) => run(() => actions.answerQuestion(id, answered))}
               onHide={(id, hidden) => run(() => actions.hideQuestion(id, hidden))}
+              onSpotlight={(id) => run(() => actions.spotlightQuestion(id))}
+              spotlightId={state.room?.spotlightQuestionId}
+              closed={closed}
             />
           )}
 

@@ -50,6 +50,11 @@ export function emitRoomUpdated(io, code, payload) {
   io.to(code).emit('room:updated', payload);
 }
 
+/** Spotlight change → everyone in the room. questionId is null when cleared. */
+export function emitSpotlight(io, code, questionId) {
+  io.to(code).emit('room:spotlight', { questionId });
+}
+
 /** Session rename → host room only. */
 export function emitSessionRenamed(io, code, session) {
   io.to(hostRoom(code)).emit('session:renamed', { id: String(session._id), name: session.name });

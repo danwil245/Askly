@@ -5,7 +5,7 @@ import { Icon } from '../shared/icons.jsx';
 import { sortQuestions } from '../../lib/sort.js';
 
 /** Audience question list: live-sorted, with the user's own upvotes highlighted. */
-export function QuestionList({ questions, myUpvotes, onUpvote, disabled }) {
+export function QuestionList({ questions, myUpvotes, onUpvote, disabled, spotlightId }) {
   const sorted = useMemo(() => sortQuestions(questions), [questions]);
   const mySet = useMemo(() => new Set(myUpvotes), [myUpvotes]);
 
@@ -26,6 +26,7 @@ export function QuestionList({ questions, myUpvotes, onUpvote, disabled }) {
           mine={mySet.has(q.id)}
           onUpvote={onUpvote}
           disabled={disabled}
+          spotlighted={q.id === spotlightId}
         />
       ))}
     </ul>

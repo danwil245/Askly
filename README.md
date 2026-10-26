@@ -242,7 +242,8 @@ Every client→server event takes an ack callback returning `{ ok: true, data? }
 | `question:upvote` | audience/host | `{ questionId }` | Toggle for this userId, broadcast `question:updated` |
 | `poll:vote` | audience/host | `{ pollId, optionId }` | One vote per user (unique index), broadcast `poll:updated`; duplicate → `ALREADY_VOTED` |
 | `question:answer` | **host** | `{ questionId, answered }` | Set answered flag, broadcast `question:updated` |
-| `question:hide` | **host** | `{ questionId, hidden }` | Set hidden flag, broadcast `question:updated` |
+| `question:hide` | **host** | `{ questionId, hidden }` | Set hidden flag, broadcast `question:updated` (hiding the spotlighted question clears the spotlight) |
+| `question:spotlight` | **host** | `{ questionId \| null }` | Pin one visible question as "Now answering" (null clears). The previous spotlighted question is marked answered. Broadcast `room:spotlight` |
 | `poll:create` | **host** | `{ question, options }` | Create poll (2–6 options), broadcast `poll:new` |
 | `poll:close` | **host** | `{ pollId }` | Close poll, broadcast `poll:updated` |
 | `room:close` | **host** | `{ sessionName? }` | End session, close polls, broadcast `room:updated` |
@@ -258,6 +259,7 @@ Every client→server event takes an ack callback returning `{ ok: true, data? }
 | `poll:new` | Poll object |
 | `poll:updated` | Poll with current option counts and status |
 | `room:updated` | `{ status, currentSessionId, sessions }` |
+| `room:spotlight` | `{ questionId }` — the "Now answering" question, or `null` when cleared (also on `room.spotlightQuestionId` in `room:state`) |
 | `session:renamed` | `{ id, name }` (host only) |
 | `analytics:updated` | Analytics snapshot (host only, throttled to ≤ once / 2s) |
 | `presence:updated` | `{ count }` live connected count |

@@ -112,6 +112,7 @@ export async function close(room, { sessionName } = {}) {
 
   room.status = 'closed';
   room.currentSessionId = null;
+  room.spotlightQuestionId = null;
   await room.save();
 
   return { room, sessions: await sessionListPayload(room._id) };
